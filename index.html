@@ -1,0 +1,2045 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2a2147">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/lucia_cara.webp">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<title>Aventuras de Lala y Bubu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;800&display=swap">
+<style>
+/* Layout: el mundo (ciudad, calle o cuarto) cubre toda la pantalla; HUD en píldoras claras flotando encima. */
+:root{
+  --night:#2a2147; --ink:#2b2140; --muted:#6d6390; --line:#eadff5;
+  --glass:rgba(255,255,255,.88); --panel:#fffaf2;
+  --sun:#ffd23f; --peach:#ff8a3d; --rose:#ff8fb8; --leaf:#3fa45b; --bark:#a8703f;
+  --display:"Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --body:"Nunito", "Segoe UI", system-ui, sans-serif;
+}
+html,body{height:100%;margin:0}
+[hidden]{display:none !important}
+:root{padding:0 !important}
+body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+#app{position:fixed;inset:0;overflow:hidden}
+canvas#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+.hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 16px) 0 calc(env(safe-area-inset-left,0px) + 16px);pointer-events:none;z-index:4}
+.hud > *{pointer-events:auto}
+.brand{font:800 1.3rem/1 var(--display);background:var(--glass);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:999px;padding:7px 14px 4px;box-shadow:0 3px 0 rgba(43,33,64,.15)}
+.brand .a{color:#e9a800}.brand .y{color:var(--muted);font-size:.85em}.brand .b{color:var(--bark)}
+.chip{display:flex;align-items:center;gap:6px;background:var(--glass);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:999px;padding:6px 12px;font-weight:800;font-size:.85rem;box-shadow:0 3px 0 rgba(43,33,64,.15)}
+.chip img{width:26px;height:26px;border-radius:50%;object-fit:cover;margin:-4px 0 -4px -6px}
+.chip small{color:var(--muted);font-weight:700}
+.spacer{flex:1}
+.btn{font:800 .85rem var(--body);display:inline-flex;align-items:center;gap:6px;border:0;border-radius:14px;padding:8px 12px;cursor:pointer;background:var(--glass);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:var(--ink);box-shadow:0 3px 0 rgba(43,33,64,.18)}
+.btn svg{width:18px;height:18px;flex:none}
+.btn:hover{filter:brightness(1.05)}
+.btn:focus-visible,.place:focus-visible,.room:focus-visible,.pm:focus-visible{outline:3px solid var(--peach);outline-offset:2px}
+.btn.primary{background:var(--sun)}
+.btn.on{background:var(--leaf);color:#fff}
+@media (max-width:1180px){.hud .lbl{display:none}.btn{padding:9px}}
+@media (max-width:720px){.brand,.chip small{display:none}.hud{gap:6px}}
+.btn .badge{background:var(--peach);color:#fff;border-radius:99px;font-size:.7rem;min-width:18px;height:18px;display:inline-grid;place-items:center;padding:0 4px}
+.btn .cnt{font-variant-numeric:tabular-nums;font-size:.8rem}
+/* Intro */
+#intro{position:absolute;inset:0;z-index:8;display:grid;place-items:center;text-align:center;padding:16px;background:linear-gradient(180deg,rgba(42,33,71,0) 30%,rgba(42,33,71,.55) 100%)}
+#intro .box{display:flex;flex-direction:column;align-items:center;gap:10px}
+#intro h1{margin:0;font:800 clamp(3rem,11vw,6.5rem)/.9 var(--display);text-shadow:0 6px 0 rgba(43,33,64,.25)}
+#intro h1 .a{color:#ffd23f;-webkit-text-stroke:2px #c98200}
+#intro h1 .y{color:#fff;font-size:.55em}
+#intro h1 .b{color:#ffb36b;-webkit-text-stroke:2px #8a4a1a}
+#intro p{margin:0;font:800 clamp(1rem,2.6vw,1.3rem) var(--body);color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.35)}
+#intro .who{display:flex;align-items:center;gap:10px;background:var(--glass);border-radius:999px;padding:6px 16px 6px 6px;font-weight:800}
+#intro .who img{width:44px;height:44px;border-radius:50%;object-fit:cover;background:#fff1d6}
+#intro .play{font:800 1.6rem var(--display);padding:12px 44px 8px;border-radius:999px;background:var(--sun);box-shadow:0 6px 0 #c98200;border:0;cursor:pointer;color:var(--ink)}
+#intro .play:active{transform:translateY(3px);box-shadow:0 3px 0 #c98200}
+#loading{font-weight:800;color:#fff}
+/* Mapa */
+#labels{position:absolute;inset:0;pointer-events:none;z-index:2}
+.place{position:absolute;transform:translate(-50%,-100%);pointer-events:auto;border:0;cursor:pointer;font:800 .82rem var(--body);background:var(--glass);color:var(--ink);border-radius:999px;padding:5px 11px 5px 9px;display:flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:0 3px 0 rgba(43,33,64,.25)}
+.place::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border:6px solid transparent;border-bottom:0;border-top-color:var(--glass)}
+.place i{width:8px;height:8px;border-radius:50%;background:#c9bfdc;flex:none}
+.place.go{background:var(--sun);font-size:.95rem;padding:7px 14px 7px 8px;animation:bob 1.6s ease-in-out infinite}
+.place.go::after{border-top-color:var(--sun)}
+.place.go img{width:26px;height:26px;border-radius:50%;object-fit:cover;background:#fff}
+.place.big{font:800 1.05rem var(--display);padding:8px 16px 5px;background:#fff}
+.place.big::after{border-top-color:#fff}
+.place .soon{font-size:.68rem;color:var(--muted);font-weight:700}
+@keyframes bob{0%,100%{margin-top:0}50%{margin-top:-5px}}
+#mapTools{position:absolute;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);display:flex;flex-direction:column;gap:8px;z-index:4}
+#mapTools .btn{width:46px;height:46px;justify-content:center;font-size:1.4rem;padding:0}
+#hint{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);background:var(--glass);border-radius:999px;padding:7px 16px;font-weight:800;font-size:.85rem;z-index:3;white-space:nowrap;pointer-events:none;box-shadow:0 3px 0 rgba(43,33,64,.15)}
+/* Paneles de la casa */
+.panel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 64px);right:calc(env(safe-area-inset-right,0px) + 16px);z-index:5;background:var(--panel);border-radius:20px;padding:10px;display:grid;gap:6px;box-shadow:0 10px 30px rgba(43,33,64,.3);min-width:210px;max-width:min(330px,calc(100vw - 32px));max-height:calc(100% - 96px);overflow:auto}
+.panel h3{margin:2px 6px 4px;font:800 1.1rem var(--display)}
+.room{border:0;background:#fff;border-radius:14px;padding:9px 12px;font:800 .9rem var(--body);text-align:left;cursor:pointer;color:var(--ink);display:flex;align-items:center;gap:8px}
+.room.cur{background:var(--sun)}
+.room i{width:10px;height:10px;border-radius:3px;flex:none}
+.idea{background:#fff;border-radius:14px;padding:8px 12px;font-weight:700;font-size:.88rem;line-height:1.3;display:flex;gap:8px;align-items:flex-start}
+.idea b{color:#c46a12;font-weight:800;flex:none}
+.panel.wide{max-width:min(380px,calc(100vw - 32px))}
+.panel h3 small{font:700 .8rem var(--body);color:var(--muted);margin-left:4px}
+.pv{display:block;margin:0 auto;width:150px;height:auto;background:radial-gradient(#fff8e6,#ffe1c4);border-radius:18px}
+.lrow{display:grid;gap:4px}
+.lrow b{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sws{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0;position:relative}
+.sw.txt{width:auto;height:auto;border-radius:12px;padding:5px 9px;font:800 .75rem var(--body);background:#fff;color:var(--ink)}
+.sw.sel{box-shadow:0 0 0 3px var(--ink)}
+.sw.lock{opacity:.45;filter:grayscale(.7)}
+.sw.lock::after{content:"🔒";position:absolute;right:-6px;bottom:-6px;font-size:.7rem;filter:none}
+.bag{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.slot{border:0;background:#fff;border-radius:14px;padding:6px;display:flex;flex-direction:column;align-items:center;gap:2px;font:700 .72rem var(--body);color:var(--ink);cursor:pointer;text-align:center}
+.task{background:#fff;border-radius:14px;padding:8px 10px;display:flex;gap:10px;align-items:flex-start}
+.task i{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-style:normal;font-weight:800;color:#fff;margin-top:2px}
+.task.ok i{background:var(--leaf);border-color:var(--leaf)}
+.task b{display:block;font-size:.9rem}.task span{display:block;font-size:.8rem;color:var(--muted);line-height:1.3}
+.task em{display:block;font-style:normal;font-size:.75rem;font-weight:800;color:#c46a12;margin-top:2px}
+.task.ok b{text-decoration:line-through;text-decoration-color:var(--leaf)}
+.stars{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;background:#fff;border-radius:14px;padding:8px}
+.st svg{width:100%;height:auto;fill:#e6dff0}.st.ok svg{fill:#f2b600}
+/* Diálogo y avisos */
+#dialog{position:absolute;z-index:6;left:max(16px,4%);right:max(16px,4%);max-width:760px;margin-inline:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);background:var(--panel);border-radius:20px;padding:10px 14px;box-shadow:0 8px 0 rgba(43,33,64,.22);display:flex;gap:12px;align-items:center}
+#dialog img{width:58px;height:58px;border-radius:16px;object-fit:cover;flex:none;background:#fff1d6}
+#dialog h3{margin:0;font:800 1.1rem var(--display);color:#c46a12}
+#dialog p{margin:2px 0 0;font-size:clamp(.85rem,2.2vw,1rem);line-height:1.35}
+#dialog .btn{margin-left:auto;flex:none}
+#dialog > div{min-width:0}
+#toast{position:absolute;z-index:7;top:calc(env(safe-area-inset-top,0px) + 70px);left:50%;transform:translateX(-50%);background:var(--panel);border-radius:18px;padding:9px 16px;font-weight:800;font-size:clamp(.82rem,2vw,1rem);max-width:88%;text-align:center;box-shadow:0 6px 0 rgba(43,33,64,.2);animation:pop .3s ease-out}
+@keyframes pop{from{transform:translate(-50%,-12px);opacity:.3}to{transform:translate(-50%,0);opacity:1}}
+#mission{position:absolute;z-index:3;top:calc(env(safe-area-inset-top,0px) + 66px);left:calc(env(safe-area-inset-left,0px) + 16px);background:var(--glass);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:16px;padding:7px 12px;font-weight:800;font-size:.85rem;display:flex;align-items:center;gap:8px;box-shadow:0 3px 0 rgba(43,33,64,.15);pointer-events:none}
+#mission .bar{width:70px;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+#mission .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--sun),var(--peach));border-radius:99px;transition:width .4s}
+#mission .n{font-variant-numeric:tabular-nums;color:var(--muted)}
+/* Barra de acción (llevar / sentada) */
+#action{position:absolute;z-index:5;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:var(--panel);border-radius:20px;padding:6px 6px 6px 8px;box-shadow:0 6px 0 rgba(43,33,64,.2);max-width:calc(100% - 32px)}
+#action canvas{width:44px;height:44px;border-radius:12px;background:#fff1d6;flex:none}
+#action .t{font-weight:800;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#action .t small{display:block;font-weight:700;color:var(--muted);font-size:.74rem}
+#action .btn{box-shadow:0 3px 0 rgba(43,33,64,.15);flex:none}
+/* Menú de un objeto (levantar / jugar) */
+#pmenu{position:absolute;z-index:5;display:flex;gap:8px;transform:translate(-50%,-100%)}
+.pm{border:0;cursor:pointer;background:var(--panel);border-radius:18px;padding:8px 12px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font:800 .78rem var(--body);color:var(--ink);box-shadow:0 5px 0 rgba(43,33,64,.22)}
+.pm svg{width:26px;height:26px}
+.pm.play{background:var(--sun)}
+/* Tablero para dibujar */
+#draw{position:absolute;inset:0;z-index:9;background:rgba(42,33,71,.6);display:grid;place-items:center;padding:12px}
+#draw .wrap{display:flex;gap:12px;align-items:stretch;background:#c98f55;border-radius:22px;padding:12px;box-shadow:0 10px 0 rgba(43,33,64,.3);max-height:100%}
+#draw canvas{display:block;border-radius:8px;touch-action:none;cursor:crosshair;background:#3c5a45;height:min(76vh,560px);width:auto;max-width:60vw}
+#draw .tools{display:flex;flex-direction:column;gap:8px;justify-content:center}
+.chalk{width:40px;height:40px;border-radius:50%;border:3px solid #fff;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.2)}
+.chalk.sel{outline:3px solid var(--ink);outline-offset:2px}
+#draw .btn{justify-content:center}
+#fx{position:absolute;inset:0;pointer-events:none;z-index:6}
+#netlog{position:absolute;z-index:3;left:calc(env(safe-area-inset-left,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);max-width:58%;background:rgba(42,33,71,.88);color:#efeaff;border-radius:12px;padding:8px 10px;font:600 11px/1.45 ui-monospace,Menlo,Consolas,monospace;pointer-events:none}
+#netlog b{display:block;font-family:var(--body);font-size:11px;color:#8fe3b4;margin-bottom:2px}
+#netlog div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (prefers-reduced-motion:reduce){.place.go{animation:none}#toast{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+  <canvas id="fx"></canvas>
+  <div id="labels"></div>
+  <div class="hud" id="hud" hidden>
+    <span class="brand"><span class="a">Lala</span> <span class="y">y</span> <span class="b">Bubu</span></span>
+    <span class="chip"><img src="assets/lucia_cara.webp" alt=""><span id="placeName">Ciudad</span></span>
+    <span class="spacer"></span>
+    <button class="btn primary" id="bIdeas" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg><span class="lbl">¿Qué hago?</span></button>
+    <button class="btn" id="bVestir" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 3 6l2 5 3-1v11h8V10l3 1 2-5-5-3c0 2-2 3-4 3S8 5 8 3z"/></svg><span class="lbl">Vestir</span></button>
+    <button class="btn" id="bBolso" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg><span class="lbl">Bolso</span><span class="badge" id="bagN" hidden>0</span></button>
+    <button class="btn" id="bTareas" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg><span class="lbl">Tareas</span><span class="cnt" id="taskN">0/7</span></button>
+    <button class="btn" id="bTesoros" type="button" hidden><svg viewBox="0 0 24 24" fill="#f2b600" stroke="#c98200" stroke-width="1.5" stroke-linejoin="round"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg><span class="cnt" id="starN">0</span></button>
+    <button class="btn" id="bMap" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg><span class="lbl">Mapa</span></button>
+    <button class="btn" id="bRooms" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span class="lbl">Casa</span></button>
+    <button class="btn" id="bNet" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5v4M12 11.5l-5 4.5M12 11.5l5 4.5"/></svg><span class="lbl">Red</span></button>
+    <button class="btn" id="bFull" type="button" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  </div>
+  <div id="mission" hidden></div>
+  <div id="mapTools" hidden>
+    <button class="btn" id="zIn" type="button" aria-label="Acercar">+</button>
+    <button class="btn" id="zOut" type="button" aria-label="Alejar">−</button>
+  </div>
+  <div id="hint" hidden></div>
+  <div id="rooms" class="panel" hidden></div>
+  <div id="ideas" class="panel" hidden></div>
+  <div id="pVestir" class="panel wide" hidden></div>
+  <div id="pBolso" class="panel" hidden></div>
+  <div id="pTareas" class="panel wide" hidden></div>
+  <div id="pTesoros" class="panel" hidden></div>
+  <div id="pmenu" hidden></div>
+  <div id="action" hidden></div>
+  <div id="dialog" hidden><img id="dFace" alt=""><div><h3 id="dName"></h3><p id="dText"></p></div><button class="btn primary" id="dOk" type="button">¡Vale!</button></div>
+  <div id="toast" hidden></div>
+  <div id="netlog" hidden><b>Acciones de red (simuladas)</b><div id="netlines"></div></div>
+  <div id="draw" hidden>
+    <div class="wrap">
+      <canvas id="board"></canvas>
+      <div class="tools">
+        <div id="chalks" style="display:flex;flex-direction:column;gap:8px;align-items:center"></div>
+        <button class="btn" id="dClear" type="button">Borrar</button>
+        <button class="btn primary" id="dDone" type="button">Listo</button>
+      </div>
+    </div>
+  </div>
+  <div id="intro">
+    <div class="box">
+      <h1><span class="a">Lala</span> <span class="y">y</span> <span class="b">Bubu</span></h1>
+      <p>Una ciudad entera para explorar</p>
+      <div class="who"><img src="assets/lucia_cara.webp" alt="">Juegas con Lucía</div>
+      <span id="loading">Cargando la ciudad…</span>
+      <button class="play" id="bPlay" type="button" hidden>Jugar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+/* ============================================================
+   AVENTURAS DE LALA Y BUBU — prototipo
+   Flujo: Intro → Mapa de la ciudad (zoom) → Frente de la casa → Recorrido por la casa.
+   Interacciones: levantar y acomodar objetos, guardar en cajas, sentarse,
+   columpio, tobogán, pelota, castillos de arena, luces, tele, tablero y dormir.
+   Multijugador desde el diseño: todo cambio del mundo es una ACCIÓN (JSON) que pasa
+   por dispatch → Net.send → applyAction. Hoy es local; mañana Net.send va a un servidor.
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY = 'lalabubu_casa_v2';
+const ME = 'yo';
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a)*t;
+const ease = t => t*t*(3 - 2*t);
+
+/* ---------- Objetos recortados de cada cuarto (posición original en la imagen) ---------- */
+const BOX = {"sala":{"cojin_flor":{"x":859,"y":468,"w":88,"h":73},"cojin_azul":{"x":938,"y":456,"w":114,"h":86},"cojin_amarillo":{"x":545,"y":458,"w":98,"h":90},"cojin_verde":{"x":628,"y":457,"w":108,"h":84},"estrella":{"x":703,"y":522,"w":36,"h":36},"libros":{"x":677,"y":559,"w":86,"h":21},"matera":{"x":765,"y":490,"w":85,"h":89},"portarretrato":{"x":1341,"y":439,"w":49,"h":63},"casita":{"x":1238,"y":353,"w":33,"h":46}},"patio":{"pelota":{"x":1141,"y":573,"w":60,"h":54},"balde_rojo":{"x":1426,"y":538,"w":44,"h":36},"pala":{"x":1469,"y":549,"w":53,"h":28},"balde_amarillo":{"x":1634,"y":525,"w":38,"h":67}},"juegos":{"aros":{"x":562,"y":587,"w":62,"h":76},"tren":{"x":402,"y":642,"w":229,"h":101},"cubo":{"x":603,"y":708,"w":50,"h":44},"cubos":{"x":666,"y":678,"w":82,"h":52},"jirafa":{"x":70,"y":428,"w":60,"h":77}},"comedor":{"florero":{"x":791,"y":392,"w":84,"h":98},"cuadro_oso":{"x":87,"y":402,"w":62,"h":71},"libros":{"x":222,"y":432,"w":67,"h":39},"osito":{"x":236,"y":251,"w":53,"h":57},"casita":{"x":224,"y":154,"w":49,"h":58},"silla":{"x":583,"y":464,"w":183,"h":217},"pata":{"x":666,"y":517,"w":46,"h":170}},"habitacion":{"osito":{"x":669,"y":469,"w":70,"h":83},"cojin":{"x":452,"y":607,"w":160,"h":90},"conejo":{"x":1329,"y":312,"w":60,"h":83},"osito2":{"x":1229,"y":332,"w":51,"h":65},"estrella":{"x":432,"y":225,"w":54,"h":55},"libros":{"x":1278,"y":345,"w":45,"h":50}}};
+
+/* Objetos que se pueden levantar. fy = profundidad del piso debajo (define el tamaño).
+   surf = superficie donde arranca. play = tiene un juego propio. */
+const PROP_DEF = {
+  'sala.cojin_amarillo': { name:'Cojín amarillo', fy:635, surf:'sofa' },
+  'sala.cojin_verde':    { name:'Cojín verde', fy:635, surf:'sofa' },
+  'sala.cojin_flor':     { name:'Cojín de flor', fy:635, surf:'sofa' },
+  'sala.cojin_azul':     { name:'Cojín de puntos', fy:635, surf:'sofa' },
+  'sala.libros':         { name:'Libros', fy:690, surf:'mesaSala' },
+  'sala.estrella':       { name:'Estrella', fy:690, surf:'mesaSala' },
+  'sala.matera':         { name:'Matera', fy:690, surf:'mesaSala' },
+  'sala.portarretrato':  { name:'Portarretrato', fy:720, surf:'mueble' },
+  'sala.casita':         { name:'Casita de madera', fy:620, surf:'estante1' },
+  'comedor.florero':     { name:'Florero', fy:686, surf:'mesaComedor' },
+  'comedor.cuadro_oso':  { name:'Cuadro del oso', fy:600, surf:'aparador' },
+  'comedor.libros':      { name:'Libros', fy:600, surf:'aparador' },
+  'comedor.osito':       { name:'Osito', fy:600, surf:'repisa2' },
+  'comedor.casita':      { name:'Casita', fy:600, surf:'repisa1' },
+  'juegos.aros':         { name:'Torre de aros', fy:663, surf:'piso', toy:true, play:'aros' },
+  'juegos.tren':         { name:'Tren de bloques', fy:743, surf:'piso', toy:true, play:'tren' },
+  'juegos.cubo':         { name:'Cubo', fy:752, surf:'piso', toy:true },
+  'juegos.cubos':        { name:'Bloques', fy:730, surf:'piso', toy:true },
+  'juegos.jirafa':       { name:'Jirafa', fy:640, surf:'estanteJ1' },
+  'habitacion.osito':    { name:'Osito', fy:675, surf:'baul' },
+  'habitacion.cojin':    { name:'Cojín de flor', fy:697, surf:'piso' },
+  'habitacion.conejo':   { name:'Conejita', fy:610, surf:'estanteria' },
+  'habitacion.osito2':   { name:'Osito café', fy:610, surf:'estanteria' },
+  'habitacion.libros':   { name:'Libros', fy:610, surf:'estanteria' },
+  'habitacion.estrella': { name:'Lámpara estrella', fy:640, surf:'repisaH2' },
+  'patio.balde_rojo':    { name:'Balde rojo', fy:600, surf:'arenero' },
+  'patio.pala':          { name:'Pala', fy:600, surf:'arenero' },
+  'patio.balde_amarillo':{ name:'Balde amarillo', fy:600, surf:'arenero' },
+};
+
+/* Superficies donde se pueden poner cosas: y = altura de apoyo, fy = profundidad del piso.
+   y0/y1 = superficie con fondo (área). */
+const SURF = {
+  sala: [
+    { id:'sofa', name:'el sofá', x0:560, x1:1040, y:548, fy:635 },
+    { id:'mesaSala', name:'la mesa', x0:612, x1:962, y:580, fy:690 },
+    { id:'mueble', name:'el mueble', x0:1292, x1:1655, y:506, fy:720 },
+    { id:'estante1', name:'el estante', x0:1182, x1:1278, y:400, fy:620 },
+    { id:'estante2', name:'el estante', x0:1182, x1:1278, y:325, fy:620 },
+  ],
+  comedor: [
+    { id:'mesaComedor', name:'la mesa', x0:652, x1:1005, y:492, fy:686 },
+    { id:'aparador', name:'el aparador', x0:25, x1:320, y:472, fy:600 },
+    { id:'repisa1', name:'la repisa', x0:207, x1:328, y:212, fy:600 },
+    { id:'repisa2', name:'la repisa', x0:207, x1:328, y:308, fy:600 },
+  ],
+  juegos: [
+    { id:'cubbyTop', name:'la estantería', x0:548, x1:1058, y:466, fy:612, store:true },
+    { id:'estanteJ1', name:'el estante', x0:8, x1:150, y:505, fy:640, store:true },
+    { id:'estanteJ2', name:'el estante', x0:168, x1:243, y:457, fy:640, store:true },
+    { id:'estanteJ3', name:'el estante', x0:8, x1:150, y:382, fy:640, store:true },
+    { id:'mesita', name:'la mesita', x0:1482, x1:1662, y:586, fy:790, store:true },
+  ],
+  habitacion: [
+    { id:'cama', name:'la cama', x0:240, x1:600, y:520, fy:690 },
+    { id:'baul', name:'el baúl', x0:656, x1:804, y:551, fy:680 },
+    { id:'estanteria', name:'la estantería', x0:1222, x1:1405, y:397, fy:610 },
+    { id:'repisaH1', name:'la repisa', x0:310, x1:505, y:207, fy:640 },
+    { id:'repisaH2', name:'la repisa', x0:310, x1:505, y:284, fy:640 },
+    { id:'repisaH3', name:'la repisa', x0:310, x1:505, y:370, fy:640 },
+    { id:'escritorio', name:'el escritorio', x0:1385, x1:1660, y:468, fy:700 },
+    { id:'mesaNoche', name:'la mesita de noche', x0:12, x1:160, y:538, fy:715 },
+  ],
+  patio: [
+    { id:'arenero', name:'el arenero', x0:1252, x1:1665, y0:552, y1:600, fy:620 },
+    { id:'tronco1', name:'el tronco', x0:1292, x1:1422, y:683, fy:790 },
+    { id:'tronco2', name:'el tronco', x0:1502, x1:1665, y:668, fy:785 },
+  ],
+};
+/* Cajas donde se guardan cosas (desaparecen adentro). */
+const CONT = {
+  juegos: [ { id:'caja', name:'la caja de juguetes', x:684, y:576, r:48, walk:[684,700], store:true } ],
+  habitacion: [ { id:'baulDentro', name:'el baúl', x:730, y:618, r:52, walk:[730,725] } ],
+};
+
+/* ---------- Imágenes ---------- */
+const SRC = {
+  ciudad:'assets/ciudad.webp', cerca:'assets/ciudad_cerca.webp', calle:'assets/calle.webp',
+  sala:'assets/sala.webp', comedor:'assets/comedor.webp', juegos:'assets/juegos.webp',
+  habitacion:'assets/habitacion.webp', patio:'assets/patio.webp',
+  frente:'assets/lucia_frente.webp', espalda:'assets/lucia_espalda.webp',
+  derecha:'assets/lucia_derecha.webp', izquierda:'assets/lucia_izquierda.webp', cara:'assets/lucia_cara.webp',
+  silla:'assets/props/comedor_silla.webp', pata:'assets/props/comedor_pata.webp', pelota:'assets/props/patio_pelota.webp',
+};
+for (const id in PROP_DEF){ const [r, n] = id.split('.'); SRC['p:' + id] = `assets/props/${r}_${n}.webp`; }
+const IMG = {};
+function loadAll(){
+  return Promise.all(Object.entries(SRC).map(([k, src]) => new Promise(res => {
+    const im = new Image(); im.onload = () => { IMG[k] = im; res(); }; im.onerror = () => res(); im.src = src;
+  })));
+}
+
+/* ---------- Mapa de la ciudad ---------- */
+const MAP_W = 2048, MAP_H = 768;
+const MC = [0.693689, 0.0101792, 6.2009, -0.0101792, 0.693689, 56.98]; // vista cercana → ciudad completa
+const toWide = (x, y) => [MC[0]*x + MC[1]*y + MC[2], MC[3]*x + MC[4]*y + MC[5]];
+const PLACES = [
+  { id:'casa', name:'Casa de Lucía', x:1105, y:325, go:true },
+  { id:'escuela', name:'Escuela', x:230, y:440 }, { id:'alcaldia', name:'Alcaldía', x:860, y:368 },
+  { id:'hospital', name:'Hospital', x:1300, y:560 }, { id:'parque', name:'Parque de la fuente', x:760, y:632 },
+  { id:'super', name:'Supermercado', x:690, y:290 }, { id:'tiendas', name:'Tiendas', x:985, y:540 },
+  { id:'oficinas', name:'Oficinas', x:1190, y:385 }, { id:'restaurante', name:'Restaurante', x:1470, y:650 },
+  { id:'lago', name:'Lago', x:1530, y:262 }, { id:'cascada', name:'Cascada', x:500, y:150 },
+  { id:'muelle', name:'Muelle', x:200, y:685 }, { id:'cancha', name:'Cancha', x:310, y:525 },
+  { id:'kiosco', name:'Kiosco', x:500, y:488 }, { id:'obra', name:'Construcción', x:115, y:180 },
+  { id:'mirador', name:'Mirador', x:400, y:55 },
+];
+const ZONES = [ { id:'centro', name:'Centro de la ciudad', x:600, y:330 }, { id:'lotes', name:'Lotes nuevos', x:1650, y:430 } ];
+const Z_SWITCH0 = 1.55, Z_SWITCH1 = 1.85, Z_MAX = 3.4;
+const mapCam = { cx:MAP_W/2, cy:MAP_H/2, z:1, anim:null };
+
+/* ---------- Escenas caminables ----------
+   band = franja del piso; H(y) = alto de Lucía según la profundidad. */
+const ROOM_ORDER = ['sala','comedor','juegos','habitacion','patio'];
+const SCENES = {
+  calle: { name:'Calle de Lucía', img:'calle', w:1942, h:880, band:[705,762], H:y => 138 + (y-705)*.45, street:true, hot:[
+    { kind:'door', x:1105, y:500, r:95, walk:[1100,708], go:'sala', at:[210,780], label:'Entrar a casa' },
+    { kind:'msg', x:330, y:470, r:100, walk:[330,712], text:'Esta es la casa azul de Juan. Pronto podremos visitarlo.' },
+    { kind:'msg', x:1820, y:470, r:100, walk:[1800,712], text:'Aquí vive Lala. ¡Pronto podremos entrar!' },
+    { kind:'msg', x:1237, y:595, r:45, walk:[1237,708], flag:'mail', text:'¡Una carta en el buzón! Dice: "Bienvenida al barrio, Lucía". Y algo brilla en el andén…' },
+  ]},
+  sala: { name:'Sala', img:'sala', w:1672, h:941, band:[660,905], H:y => 245 + (y-655)*.55, hot:[
+    { kind:'door', x:48, y:380, r:100, walk:[130,720], go:'calle', at:[1100,712], label:'Salir a la calle' },
+    { kind:'edge', side:'r', x:1615, y:780, go:'comedor', at:[160,780], label:'Comedor' },
+    { kind:'act', act:'tv', x:1520, y:350, r:120, walk:[1470,730] },
+    { kind:'act', act:'lamp', lamp:'sala', x:432, y:360, r:62, walk:[440,700] },
+    { kind:'act', act:'sit', x0:575, x1:1025, seatY:556, fy:640, hit:[480,440,1125,640], walk:'front' },
+    { kind:'msg', x:1215, y:250, r:50, walk:[1215,700], text:'Libros de cuentos. Mi favorito es el de Bubu en el bosque.' },
+  ]},
+  comedor: { name:'Comedor', img:'comedor', w:1672, h:941, band:[650,905], H:y => 240 + (y-640)*.55, hot:[
+    { kind:'edge', side:'l', x:55, y:780, go:'sala', at:[1510,780], label:'Sala' },
+    { kind:'edge', side:'r', x:1615, y:780, go:'juegos', at:[160,790], label:'Cuarto de juegos' },
+    { kind:'act', act:'lamp', lamp:'comedor', x:205, y:400, r:48, walk:[240,690] },
+    { kind:'msg', x:1445, y:420, r:90, walk:[1440,700], text:'Por esa puerta está la cocina. Pronto podremos cocinar.' },
+    { kind:'msg', x:150, y:270, r:70, walk:[200,700], text:'Un dibujo del arcoíris. ¡Lo pintamos en familia!' },
+  ]},
+  juegos: { name:'Cuarto de juegos', img:'juegos', w:1672, h:941, band:[668,905], H:y => 245 + (y-660)*.55, hot:[
+    { kind:'edge', side:'l', x:55, y:790, go:'comedor', at:[1510,790], label:'Comedor' },
+    { kind:'edge', side:'r', x:1615, y:790, go:'habitacion', at:[160,790], label:'Mi cuarto' },
+    { kind:'act', act:'board', x:1610, y:390, r:110, walk:[1540,740] },
+    { kind:'act', act:'lamp', lamp:'juegos', x:352, y:350, r:55, walk:[360,710] },
+    { kind:'act', act:'sit', x0:1215, x1:1315, seatY:596, fy:700, hit:[1150,565,1380,690], walk:'front' },
+    { kind:'act', act:'sit', x0:300, x1:385, seatY:610, fy:668, hit:[250,585,440,660], walk:'front' },
+    { kind:'act', act:'sit', x0:270, x1:380, seatY:772, fy:880, hit:[140,735,505,880], walk:'beside' },
+    { kind:'msg', x:1095, y:565, r:70, walk:[1080,720], text:'¡La estrella cojín te sonríe! Es suavecita.' },
+    { kind:'msg', x:1420, y:240, r:55, walk:[1420,720], text:'Un globo terráqueo. ¡Hay tantos lugares por conocer!' },
+  ]},
+  habitacion: { name:'Habitación de Lucía', img:'habitacion', w:1672, h:941, band:[690,905], H:y => 245 + (y-680)*.55, hot:[
+    { kind:'edge', side:'l', x:55, y:800, go:'juegos', at:[1510,790], label:'Cuarto de juegos' },
+    { kind:'edge', side:'r', x:1615, y:800, go:'patio', at:[260,770], label:'Patio' },
+    { kind:'act', act:'sleep', hit:[120,420,640,660], walk:[440,735] },
+    { kind:'act', act:'lamp', lamp:'escritorio', x:1600, y:378, r:46, walk:[1520,735] },
+    { kind:'act', act:'lamp', lamp:'conejita', x:42, y:488, r:42, walk:[170,735] },
+    { kind:'msg', x:850, y:330, r:90, walk:[850,720], text:'Desde la ventana veo las flores del jardín.' },
+  ]},
+  patio: { name:'Patio de juegos', img:'patio', w:1672, h:941, band:[575,905], H:y => 160 + (y-570)*.55, hot:[
+    { kind:'door', x:60, y:420, r:110, walk:[210,650], go:'habitacion', at:[1510,800], label:'Entrar a casa' },
+    { kind:'act', act:'swing', x:838, y:420, r:85, walk:[838,585] },
+    { kind:'act', act:'slide', hit:[420,370,610,525], walk:[300,585] },
+    { kind:'act', act:'ball', walk:null },
+    { kind:'act', act:'sand', hit:[1240,545,1672,612] },
+    { kind:'act', act:'sit', x0:1318, x1:1392, seatY:684, fy:790, hit:[1275,650,1440,790], walk:'beside' },
+    { kind:'act', act:'sit', x0:1540, x1:1640, seatY:668, fy:785, hit:[1490,640,1672,780], walk:'beside' },
+    { kind:'msg', x:967, y:460, r:38, walk:[967,595], text:'Ese columpio azul es para bebés. Yo uso el naranja.' },
+    { kind:'msg', x:380, y:290, r:70, walk:[330,600], text:'La casita del tobogán tiene una ventana redonda.' },
+    { kind:'msg', x:1560, y:180, r:100, walk:[1440,620], text:'La casa del árbol… ¿qué habrá allá arriba?' },
+    { kind:'msg', x:1460, y:400, r:60, walk:[1440,620], text:'Un muro para escalar. ¡Cuando sea más grande!' },
+  ]},
+};
+const ROOM_COLORS = { calle:'#6c8cff', sala:'#ffd23f', comedor:'#3fa45b', juegos:'#ff8a3d', habitacion:'#ff8fb8', patio:'#8fd08a' };
+const IDEAS = {
+  calle: [['Entrar','Toca la puerta de la casa.'],['Saludar','Los vecinos te saludan si pasas cerca.']],
+  sala: [['Sentarse','Toca el sofá.'],['Tele','Toca la tele para prenderla.'],['Decorar','Mueve los cojines, la matera o los libros a otro lugar.'],['Luz','Toca la lámpara.']],
+  comedor: [['Sillas','Toca una silla para correrla.'],['Decorar','Lleva el florero, los libros o el osito a la mesa.'],['Luz','Toca la lámpara del aparador.']],
+  juegos: [['Ordenar','Guarda los 4 juguetes del tapete en la estantería, en la caja o en la mesita.'],['Jugar','Toca el tren o la torre de aros y elige Jugar.'],['Dibujar','Toca el tablero verde.'],['Sentarse','Toca un puf.']],
+  habitacion: [['Dormir','Toca la cama.'],['Guardar','Mete juguetes en el baúl rosado y sácalos cuando quieras.'],['Acomodar','Pon los peluches en la cama o en la estantería.'],['Luz','Toca la lámpara del escritorio o la conejita.']],
+  patio: [['Columpio','Toca el columpio naranja. Tócalo otra vez para ir más alto.'],['Tobogán','Toca el tobogán amarillo.'],['Pelota','Toca la pelota para patearla.'],['Arena','Toca la arena para hacer castillos. Tócalos para tumbarlos.']],
+};
+
+/* ---------- Estado del mundo ---------- */
+const DEFAULT_UNLOCK = ['overol:rosado','overol:azul','overol:amarillo','monio:amarillo','monio:rosado','monio:verde','monio:lila','camiseta:amarillo','camiseta:blanca','camiseta:lila','camiseta:naranja','acc:ninguno'];
+function freshWorld(){
+  const props = {};
+  for (const id in PROP_DEF){
+    const [room, n] = id.split('.'), b = BOX[room][n], d = PROP_DEF[id];
+    props[id] = { room, x:b.x + b.w/2, y:b.y + b.h, fy:d.fy, surf:d.surf, cont:null };
+  }
+  return { props, chairs:[0, 0], lamps:{}, tv:false, ink:null, towers:[], ball:{ x:1171, y:627 }, done:{}, flags:{}, found:{}, unlocked:[...DEFAULT_UNLOCK], look:{ overol:'rosado', monio:'amarillo', camiseta:'amarillo', acc:'ninguno' } };
+}
+let WORLD = freshWorld();
+const S = { players:{} };
+let mode = 'intro', T = 0, pending = null, tapRing = null, fade = 0, fadeTo = null, netOn = false;
+const netLines = [];
+const me = () => S.players[ME];
+
+function applyAction(a){
+  if (a.type === 'join'){ S.players[a.pid] = { id:a.pid, name:a.name, scene:a.scene, x:a.x, y:a.y, tx:a.x, ty:a.y, dir:'frente', moving:false, walk:0, idle:0, pose:'stand', carry:null }; return; }
+  const p = S.players[a.pid];
+  switch (a.type){
+    case 'move': if (p){ p.tx = a.x; p.ty = a.y; } break;
+    case 'enter': if (p){ p.scene = a.scene; p.x = p.tx = a.x; p.y = p.ty = a.y; p.dir = 'frente'; p.pose = 'stand'; p.fy = null; p.seq = null; if (a.pid === ME){ night = 0; swing.riding = false; } } break;
+    case 'pick': { const o = WORLD.props[a.prop]; o.held = a.pid || 'mano'; o.cont = null; if (p) p.carry = a.prop; break; }
+    case 'place': { const o = WORLD.props[a.prop]; Object.assign(o, { room:a.room, x:a.x, y:a.y, fy:a.fy, surf:a.surf, cont:null }); delete o.held; if (p) p.carry = null; break; }
+    case 'store': { const o = WORLD.props[a.prop]; Object.assign(o, { room:a.room, cont:a.cont, t:Date.now() }); delete o.held; if (p) p.carry = null; break; }
+    case 'chair': WORLD.chairs[a.i] = a.out ? 1 : 0; break;
+    case 'lamp': WORLD.lamps[a.lamp] = a.off ? 1 : 0; break;
+    case 'tv': WORLD.tv = !!a.on; break;
+    case 'tower': WORLD.towers.push({ x:a.x, y:a.y, s:a.s }); break;
+    case 'untower': WORLD.towers.splice(a.i, 1); break;
+    case 'kick': Object.assign(ball, { vx:a.vx, vy:a.vy, vz:a.vz }); break;
+    case 'ink': WORLD.ink = a.data; inkImg = null; break;
+    case 'pose': if (p){ p.pose = a.pose; } break;
+    case 'found': WORLD.found[a.id] = 1; break;
+    case 'unlock': if (!WORLD.unlocked.includes(a.key)) WORLD.unlocked.push(a.key); break;
+    case 'look': WORLD.look[a.key] = a.val; break;
+    case 'flag': WORLD.flags[a.key] = a.val; break;
+  }
+}
+const Net = { send(a){ applyAction(a); logNet(a); if (a.type !== 'move') saveSoon(); } }; // mañana: socket.send(JSON.stringify(a))
+const dispatch = a => Net.send(a);
+function logNet(a){
+  let s = `${a.type} · ${a.pid ? (a.pid === ME ? 'tú' : a.pid) : 'mundo'}`;
+  if (a.scene) s += ` → ${a.scene}`;
+  if (a.prop) s += ` · ${a.prop}`;
+  if (a.surf) s += ` → ${a.surf}`;
+  if (a.cont) s += ` → ${a.cont}`;
+  if (a.x != null && !a.prop) s += ` (${Math.round(a.x)}, ${Math.round(a.y)})`;
+  netLines.unshift(s); netLines.length = Math.min(netLines.length, 6);
+  if (netOn) $('netlines').innerHTML = netLines.map(l => `<div>${esc(l)}</div>`).join('');
+}
+let saveTimer = 0;
+function saveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+function save(){
+  try{
+    const p = me();
+    const w = { ...WORLD, ball:{ x:ball.x, y:ball.y } };
+    localStorage.setItem(KEY, JSON.stringify({ p: p ? { scene:p.scene, x:p.x, y:p.y, carry:p.carry } : null, w }));
+  }catch(e){}
+}
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || 'null'); }catch(e){ return null; } }
+
+/* ---------- Canvas ---------- */
+const cv = $('cv'); let ctx = cv.getContext('2d');
+const fxc = $('fx'), fctx = fxc.getContext('2d');
+let vw = 1, vh = 1, dpr = 1;
+function resize(){
+  vw = window.innerWidth; vh = window.innerHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(vw*dpr); cv.height = Math.round(vh*dpr);
+  fxc.width = cv.width; fxc.height = cv.height;
+  clampMap(); snapCam();
+}
+window.addEventListener('resize', resize);
+
+/* ---------- UI general ---------- */
+function say(name, text, face){
+  $('dName').textContent = name; $('dText').textContent = text;
+  const f = $('dFace'); f.hidden = !face; if (face) f.src = face;
+  $('dialog').hidden = false;
+}
+const lucia = text => say('Lucía', text, 'assets/lucia_cara.webp');
+function closeDialog(){ $('dialog').hidden = true; }
+$('dOk').onclick = closeDialog;
+let toastTimer = 0;
+function toast(t){ const el = $('toast'); el.hidden = true; void el.offsetWidth; el.textContent = t; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 2600); }
+$('bNet').onclick = () => {
+  netOn = !netOn; $('netlog').hidden = !netOn; $('bNet').classList.toggle('on', netOn); $('bNet').setAttribute('aria-pressed', netOn);
+  $('netlines').innerHTML = netLines.map(l => `<div>${esc(l)}</div>`).join('');
+};
+$('bFull').onclick = () => { try{ if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); }catch(e){} };
+$('bMap').onclick = () => { if (me()?.carry) dropHere(true); standUp(); transition(() => enterMap(true)); };
+$('bRooms').onclick = () => { const was = !$('rooms').hidden; openPanel('rooms'); if (!was){ renderRooms(); $('rooms').hidden = false; } };
+$('bIdeas').onclick = () => { const was = !$('ideas').hidden; openPanel('ideas'); if (!was){ renderIdeas(); $('ideas').hidden = false; } };
+$('bVestir').onclick = () => openPanel('pVestir');
+$('bBolso').onclick = () => openPanel('pBolso');
+$('bTareas').onclick = () => openPanel('pTareas');
+$('bTesoros').onclick = () => openPanel('pTesoros');
+function renderRooms(){
+  const r = $('rooms'), cur = me()?.scene;
+  r.innerHTML = '<h3>Casa de Lucía</h3>';
+  ['calle', ...ROOM_ORDER].forEach(id => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'room' + (id === cur ? ' cur' : '');
+    b.innerHTML = `<i style="background:${ROOM_COLORS[id]}"></i>${SCENES[id].name}`;
+    b.onclick = () => { r.hidden = true; if (id !== cur){ const s = SCENES[id]; standUp(); goScene(id, Math.round(s.w*.5), Math.round((s.band[0]+s.band[1])/2)); } };
+    r.appendChild(b);
+  });
+}
+function renderIdeas(){
+  const r = $('ideas'), cur = me()?.scene || 'sala';
+  r.innerHTML = `<h3>Qué hacer en ${esc(SCENES[cur].name.toLowerCase())}</h3>` +
+    (IDEAS[cur] || []).map(([a, b]) => `<div class="idea"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join('') +
+    (cur !== 'calle' ? '<div class="idea"><b>Mover</b><span>Mantén presionado un objeto y arrástralo a donde quieras. A Lucía también: arrástrala por el piso para que camine, o súbela y suéltala en el sofá, la cama o el columpio.</span></div><div class="idea"><b>Llevar</b><span>Arrastra un objeto hasta el botón Bolso para llevarlo a otro cuarto, o suéltalo sobre Lucía para que lo cargue.</span></div>' : '');
+}
+
+/* ---------- Transiciones entre modos ---------- */
+function transition(fn){ if (fadeTo) return; fadeTo = { fn, t:0 }; }
+function setHud(){
+  $('hud').hidden = mode === 'intro';
+  $('mapTools').hidden = mode !== 'map';
+  $('labels').hidden = mode !== 'map';
+  $('bMap').hidden = mode !== 'scene';
+  $('bRooms').hidden = mode !== 'scene';
+  $('bIdeas').hidden = mode !== 'scene';
+  ['bVestir','bBolso','bTareas','bTesoros'].forEach(b => $(b).hidden = mode === 'intro');
+  ['rooms','ideas','pVestir','pBolso','pTareas','pTesoros'].forEach(i => $(i).hidden = true); hidePMenu(); updateBadges();
+  $('hint').hidden = mode !== 'map';
+  $('placeName').textContent = mode === 'map' ? 'Ciudad' : (me() ? SCENES[me().scene].name : '');
+  updateActionBar(); updateMission();
+}
+function enterMap(focusHouse){
+  mode = 'map'; closeDialog();
+  if (focusHouse){ const [x, y] = toWide(1105, 325); mapCam.cx = x; mapCam.cy = y; mapCam.z = 2.2; }
+  clampMap(); buildLabels(); setHud();
+}
+const seenRoom = {};
+function goScene(id, x, y){
+  transition(() => {
+    mode = 'scene';
+    if (!me()) dispatch({ type:'join', pid:ME, name:'Lucía', scene:id, x, y });
+    else dispatch({ type:'enter', pid:ME, scene:id, x, y });
+    pending = null; peds.length = 0; cars.length = 0; snapCam(); setHud(); save();
+    if (id === 'calle') seedStreet();
+    if (!seenRoom[id] && IDEAS[id]){ seenRoom[id] = 1; setTimeout(() => { if (me()?.scene === id) toast(`${SCENES[id].name}: ${IDEAS[id].map(i => i[0].toLowerCase()).join(', ')}. Mantén presionado para arrastrar.`); }, 700); }
+  });
+}
+
+/* ---------- Intro ---------- */
+$('bPlay').onclick = () => { $('intro').hidden = true; mapCam.z = 1; mapCam.cx = MAP_W/2; mapCam.cy = MAP_H/2; transition(() => enterMap(false)); };
+
+/* ---------- Mapa: cámara, zoom y etiquetas ---------- */
+function mapBase(){ return Math.max(vw / MAP_W, vh / MAP_H); }
+function clampMap(){
+  mapCam.z = clamp(mapCam.z, 1, Z_MAX);
+  const s = mapBase() * mapCam.z, hw = vw / s / 2, hh = vh / s / 2;
+  mapCam.cx = clamp(mapCam.cx, hw, MAP_W - hw); mapCam.cy = clamp(mapCam.cy, hh, MAP_H - hh);
+}
+function mapToScreen(x, y){ const s = mapBase()*mapCam.z; return [(x - mapCam.cx)*s + vw/2, (y - mapCam.cy)*s + vh/2]; }
+function screenToMap(sx, sy){ const s = mapBase()*mapCam.z; return [(sx - vw/2)/s + mapCam.cx, (sy - vh/2)/s + mapCam.cy]; }
+function zoomAt(sx, sy, f){
+  const [wx, wy] = screenToMap(sx, sy);
+  mapCam.z = clamp(mapCam.z * f, 1, Z_MAX);
+  const s = mapBase()*mapCam.z;
+  mapCam.cx = wx - (sx - vw/2)/s; mapCam.cy = wy - (sy - vh/2)/s; clampMap();
+}
+function animateMap(cx, cy, z){ mapCam.anim = { from:{ cx:mapCam.cx, cy:mapCam.cy, z:mapCam.z }, to:{ cx, cy, z }, t:0 }; }
+function settleZoom(){
+  if (mapCam.z > Z_SWITCH0 && mapCam.z < Z_SWITCH1){
+    const target = mapCam.z < (Z_SWITCH0 + Z_SWITCH1)/2 ? Z_SWITCH0 - .15 : Z_SWITCH1 + .25;
+    animateMap(mapCam.cx, mapCam.cy, target);
+  }
+}
+const nearMix = () => ease(clamp((mapCam.z - Z_SWITCH0)/(Z_SWITCH1 - Z_SWITCH0), 0, 1));
+let labelEls = [];
+function buildLabels(){
+  const wrap = $('labels'); wrap.innerHTML = ''; labelEls = [];
+  for (const z of ZONES){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'place big'; b.textContent = z.name;
+    b.onclick = () => { if (z.id === 'centro') animateMap(z.x, z.y, 2.1); else toast('Aquí cada familia podrá construir su casa. ¡Muy pronto!'); };
+    wrap.appendChild(b); labelEls.push({ el:b, x:z.x, y:z.y, near:false });
+  }
+  for (const p of PLACES){
+    const [x, y] = toWide(p.x, p.y);
+    const b = document.createElement('button'); b.type = 'button';
+    if (p.go){ b.className = 'place go'; b.innerHTML = `<img src="assets/lucia_cara.webp" alt="">${p.name}`; b.onclick = () => goScene('calle', 980, 735); }
+    else { b.className = 'place'; b.innerHTML = `<i></i>${p.name} <span class="soon">pronto</span>`; b.onclick = () => toast(`${p.name}: muy pronto podrás visitar este lugar.`); }
+    wrap.appendChild(b); labelEls.push({ el:b, x, y, near:true });
+  }
+}
+function updateLabels(){
+  const k = nearMix();
+  for (const l of labelEls){
+    const [sx, sy] = mapToScreen(l.x, l.y), a = l.near ? k : 1 - k;
+    l.el.style.left = sx + 'px'; l.el.style.top = sy + 'px'; l.el.style.opacity = a;
+    l.el.style.visibility = a < .05 || sx < -80 || sx > vw + 80 || sy < -40 || sy > vh + 60 ? 'hidden' : 'visible';
+  }
+  $('hint').textContent = k < .5 ? 'Acerca el mapa o toca "Centro de la ciudad"' : 'Toca la Casa de Lucía para ir';
+}
+$('zIn').onclick = () => animateMap(mapCam.cx, mapCam.cy, mapCam.z < Z_SWITCH1 ? Z_SWITCH1 + .25 : Math.min(Z_MAX, mapCam.z * 1.4));
+$('zOut').onclick = () => animateMap(mapCam.cx, mapCam.cy, mapCam.z > Z_SWITCH1 + .3 ? Math.max(Z_SWITCH1 + .25, mapCam.z / 1.4) : 1);
+
+const ptrs = new Map(); let drag = null, pinch = null;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture?.(e.pointerId);
+  ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (mode === 'map'){
+    mapCam.anim = null;
+    if (ptrs.size === 1) drag = { x:e.clientX, y:e.clientY };
+    if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch = { d:Math.hypot(a.x-b.x, a.y-b.y) }; drag = null; }
+  } else if (mode === 'scene') sceneDown(e);
+});
+cv.addEventListener('pointermove', e => {
+  if (mode === 'scene'){ sceneMove(e); return; }
+  if (!ptrs.has(e.pointerId) || mode !== 'map') return;
+  ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (pinch && ptrs.size >= 2){
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x-b.x, a.y-b.y);
+    zoomAt((a.x+b.x)/2, (a.y+b.y)/2, d / pinch.d); pinch.d = d;
+  } else if (drag){
+    const s = mapBase()*mapCam.z;
+    mapCam.cx -= (e.clientX - drag.x) / s; mapCam.cy -= (e.clientY - drag.y) / s; clampMap(); drag = { x:e.clientX, y:e.clientY };
+  }
+});
+function endPtr(e){ if (mode === 'scene') sceneUp(e); ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0){ drag = null; if (mode === 'map') settleZoom(); } }
+cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
+let wheelTimer = 0;
+cv.addEventListener('wheel', e => {
+  if (mode !== 'map') return; e.preventDefault(); mapCam.anim = null;
+  zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0016));
+  clearTimeout(wheelTimer); wheelTimer = setTimeout(settleZoom, 220);
+}, { passive:false });
+
+/* ---------- Escenas: cámara ---------- */
+const cam = { x:0, y:0 };
+function sceneScale(){ const s = SCENES[me()?.scene || 'calle']; return Math.max(vw / s.w, vh / s.h); }
+function camTarget(){
+  const p = me(); if (!p) return [0, 0];
+  const s = SCENES[p.scene], sc = sceneScale(), viewW = vw/sc, viewH = vh/sc;
+  return [ clamp(p.x - viewW/2, 0, Math.max(0, s.w - viewW)), clamp(p.y - viewH*.62, 0, Math.max(0, s.h - viewH)) ];
+}
+function snapCam(){ const [x, y] = camTarget(); cam.x = x; cam.y = y; }
+const clampBand = (s, y) => clamp(y, s.band[0], s.band[1]);
+const scr2world = e => { const sc = sceneScale(); return [e.clientX / sc + cam.x, e.clientY / sc + cam.y]; };
+const world2scr = (x, y) => { const sc = sceneScale(); return [(x - cam.x)*sc, (y - cam.y)*sc]; };
+
+/* ---------- Objetos: tamaño y dibujo ---------- */
+function propUnit(id){ const [r, n] = id.split('.'); const b = BOX[r][n]; return b.h / SCENES[r].H(PROP_DEF[id].fy); }
+function propSize(id, room, fy){ const [r, n] = id.split('.'), b = BOX[r][n]; const h = propUnit(id) * SCENES[room].H(fy); return [h * b.w / b.h, h]; }
+function propRect(id){
+  const o = WORLD.props[id], [w, h] = propSize(id, o.room, o.fy);
+  return { x:o.x - w/2, y:o.y - h, w, h };
+}
+const playing = {}; // animaciones de juego por objeto
+function drawProp(id){
+  const o = WORLD.props[id], im = IMG['p:' + id]; if (!im) return;
+  const [w, h] = propSize(id, o.room, o.fy);
+  let x = o.x, y = o.y, sx = 1, sy = 1;
+  const pl = playing[id];
+  if (pl){
+    const k = (T - pl.t0) / pl.dur;
+    if (k >= 1) delete playing[id];
+    else if (pl.kind === 'tren'){
+      const a = k * Math.PI * 2;
+      x += Math.sin(a) * pl.rx; y += (1 - Math.cos(a)) * pl.ry;
+      sx = Math.cos(a) >= 0 ? 1 : -1;
+      y -= Math.abs(Math.sin(T*22)) * 2;
+    } else if (pl.kind === 'aros'){
+      const b = Math.abs(Math.sin(k * Math.PI * 5)) * (1 - k);
+      y -= b * h * .35; sy = 1 + Math.sin(k * Math.PI * 10) * .06 * (1 - k); sx = 2 - sy;
+    } else if (pl.kind === 'land'){
+      const b = Math.sin(k * Math.PI) * (1 - k);
+      sy = 1 - b*.12; sx = 1 + b*.08;
+    }
+  }
+  ctx.save(); ctx.translate(x, y); ctx.scale(sx, sy);
+  ctx.drawImage(im, -w/2, -h, w, h);
+  ctx.restore();
+}
+
+/* ---------- Pelota ---------- */
+const ball = { x:1171, y:627, z:0, vx:0, vy:0, vz:0, spin:0 };
+const BALL_UNIT = () => 54 / SCENES.patio.H(627);
+function ballR(){ return BALL_UNIT() * SCENES.patio.H(ball.y) / 2; }
+function updateBall(dt){
+  if (ball.held) return;
+  const sp = Math.hypot(ball.vx, ball.vy);
+  if (sp < 4 && ball.z <= 0 && Math.abs(ball.vz) < 1){ ball.vx = ball.vy = 0; return; }
+  ball.x += ball.vx*dt; ball.y += ball.vy*dt;
+  ball.vz -= 1400*dt; ball.z += ball.vz*dt;
+  if (ball.z < 0){ ball.z = 0; ball.vz = -ball.vz*.45; if (ball.vz < 60) ball.vz = 0; }
+  const f = ball.z > 0 ? .999 : Math.pow(.25, dt);
+  ball.vx *= f; ball.vy *= f;
+  ball.spin += (ball.vx / Math.max(8, ballR())) * dt;
+  if (ball.x < 150){ ball.x = 150; ball.vx = Math.abs(ball.vx)*.7; }
+  if (ball.x > 1235){ ball.x = 1235; ball.vx = -Math.abs(ball.vx)*.7; }
+  if (ball.y < 585){ ball.y = 585; ball.vy = Math.abs(ball.vy)*.7; }
+  if (ball.y > 895){ ball.y = 895; ball.vy = -Math.abs(ball.vy)*.7; }
+}
+function drawBall(){
+  const im = IMG.pelota; if (!im) return;
+  const r = ballR();
+  ell(ctx, ball.x, ball.y, r*.95, r*.28, 0, `rgba(40,60,20,${.28 - Math.min(.2, ball.z/600)})`);
+  ctx.save(); ctx.translate(ball.x, ball.y - r - ball.z); ctx.rotate(ball.spin);
+  ctx.drawImage(im, -r*1.11, -r, r*2.22, r*2);
+  ctx.restore();
+}
+
+/* ---------- Columpio ---------- */
+const SWING = { px:838.5, py:304, L:172, half:29 };
+const swing = { amp:.025, ph:0, riding:false };
+function updateSwing(dt){
+  swing.ph += dt * 2.35;
+  const target = swing.riding ? swing.amp : .025;
+  if (!swing.riding) swing.amp = lerp(swing.amp, target, Math.min(1, dt*1.2));
+  else swing.amp = Math.max(.12, swing.amp - dt*.012);
+}
+function drawSwing(){
+  const th = Math.sin(swing.ph) * swing.amp;
+  const c = Math.cos(th), s = Math.sin(th);
+  const seatX = SWING.px + SWING.L*s, seatY = SWING.py + SWING.L*c;
+  ctx.strokeStyle = '#8f8a99'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  [-1, 1].forEach(k => {
+    const ax = SWING.px + k*SWING.half, ay = SWING.py;
+    const bx = seatX + k*SWING.half*c, by = seatY - k*SWING.half*s;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.fillStyle = '#7a7585';
+    for (let i = 1; i < 12; i++){ const t = i/12; circ(ctx, lerp(ax, bx, t), lerp(ay, by, t), 1.6, '#7a7585'); }
+  });
+  const p = me();
+  if (p && p.pose === 'swing'){
+    ctx.save(); ctx.translate(seatX, seatY); ctx.rotate(-th);
+    drawSit(IMG.frente, 0, -4, SCENES.patio.H(545));
+    ctx.restore();
+  }
+  ctx.save(); ctx.translate(seatX, seatY); ctx.rotate(-th);
+  ctx.fillStyle = '#e8792f'; rr(ctx, -40, -6, 80, 15, 7); ctx.fill();
+  ctx.fillStyle = '#ff9a4d'; rr(ctx, -40, -6, 80, 7, 5); ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- Castillos de arena ---------- */
+function towerSize(t){ return SCENES.patio.H(620) * .3 * (t.s || 1); }
+function drawTower(t, i){
+  const h = towerSize(t), w = h*.8, x = t.x, y = t.y;
+  const pop = towersPop[i] ? clamp((T - towersPop[i]) / .35, 0, 1) : 1;
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, ease(pop));
+  ell(ctx, 0, 0, w*.62, w*.16, 0, 'rgba(140,100,50,.25)');
+  ctx.fillStyle = vgrad(ctx, -h, 0, '#f6dfa8', '#d9b46d'); rr(ctx, -w/2, -h, w, h, 4); ctx.fill();
+  ctx.fillStyle = '#f3d897';
+  for (let k = 0; k < 3; k++) ctx.fillRect(-w/2 + k*w*.4, -h - h*.18, w*.2, h*.2);
+  ctx.fillStyle = 'rgba(160,110,50,.35)'; rr(ctx, -w*.12, -h*.42, w*.24, h*.42, w*.12); ctx.fill();
+  ctx.restore();
+}
+const towersPop = {};
+
+/* ---------- Sillas del comedor ---------- */
+const CHAIR = [ { dx:44, dy:4, s:.93, out:[-100, 8] }, { dx:0, dy:0, s:1, out:[-122, 14] } ];
+const chairAnim = [0, 0];
+function chairRect(i){
+  const b = BOX.comedor.silla, c = CHAIR[i], k = chairAnim[i];
+  return { x:b.x + c.dx + c.out[0]*k, y:b.y + c.dy + c.out[1]*k, w:b.w*c.s, h:b.h*c.s };
+}
+function drawChair(i){ const im = IMG.silla; if (!im) return; const r = chairRect(i); ctx.drawImage(im, r.x, r.y, r.w, r.h); }
+
+/* ---------- Tele, luces, tablero ---------- */
+const TVQ = { tl:[1419,285], tr:[1621,222], bl:[1419,472] };
+const BOARDQ = { tl:[1543,283], tr:[1672,262], bl:[1543,512] };
+const LAMPS = {
+  sala:{ room:'sala', x:432, y:345, r:150 }, comedor:{ room:'comedor', x:205, y:400, r:120 },
+  juegos:{ room:'juegos', x:352, y:345, r:150 }, escritorio:{ room:'habitacion', x:1600, y:372, r:120 },
+  conejita:{ room:'habitacion', x:42, y:488, r:90 },
+};
+function quadTransform(q, w, h){
+  return [(q.tr[0]-q.tl[0])/w, (q.tr[1]-q.tl[1])/w, (q.bl[0]-q.tl[0])/h, (q.bl[1]-q.tl[1])/h, q.tl[0], q.tl[1]];
+}
+function drawTV(){
+  if (!WORLD.tv) return;
+  ctx.save(); ctx.transform(...quadTransform(TVQ, 200, 190));
+  ctx.beginPath(); ctx.rect(0, 0, 200, 190); ctx.clip();
+  ctx.fillStyle = vgrad(ctx, 0, 190, '#8fd8ff', '#ffe3b0'); ctx.fillRect(0, 0, 200, 190);
+  circ(ctx, 160, 40, 18, '#ffe27a');
+  for (let i = 0; i < 3; i++){ const x = ((T*20 + i*90) % 280) - 40; cloudShape(ctx, x, 30 + i*14, .5); }
+  ctx.fillStyle = '#7cc56b'; ctx.beginPath(); ctx.moveTo(0, 150); ctx.quadraticCurveTo(60, 110, 120, 145); ctx.quadraticCurveTo(170, 120, 200, 140); ctx.lineTo(200, 190); ctx.lineTo(0, 190); ctx.fill();
+  const bx = 100 + Math.sin(T*1.6)*55, by = 120 - Math.abs(Math.sin(T*4))*30;
+  if (IMG.cara){ ctx.save(); ctx.beginPath(); ctx.arc(bx, by, 22, 0, 7); ctx.clip(); ctx.drawImage(IMG.cara, bx - 22, by - 26, 44, 52); ctx.restore(); }
+  for (let i = 0; i < 5; i++) star(ctx, (i*47 + T*30) % 220 - 10, 70 + Math.sin(T*3 + i)*10, 6, 2.6, 5, ['#ff8fb8','#ffd23f','#6c8cff','#3fa45b','#ff8a3d'][i]);
+  ctx.font = '800 22px "Baloo 2", sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#c46a12'; ctx.lineWidth = 4;
+  ctx.strokeText('Lala y Bubu', 100, 178); ctx.fillText('Lala y Bubu', 100, 178);
+  ctx.restore();
+  sunGlow(ctx, 1520, 360, 260, 'rgba(150,210,255,.18)');
+}
+function drawLampsOff(room){
+  for (const k in LAMPS){
+    const L = LAMPS[k]; if (L.room !== room || !WORLD.lamps[k]) continue;
+    ctx.save(); ctx.globalCompositeOperation = 'multiply';
+    const g = ctx.createRadialGradient(L.x, L.y, 4, L.x, L.y, L.r);
+    g.addColorStop(0, 'rgb(150,120,140)'); g.addColorStop(.45, 'rgb(205,190,200)'); g.addColorStop(1, 'rgb(255,255,255)');
+    ctx.fillStyle = g; ctx.fillRect(L.x - L.r, L.y - L.r, L.r*2, L.r*2);
+    ctx.restore();
+  }
+}
+let inkImg = null;
+function drawInk(){
+  if (!WORLD.ink) return;
+  if (!inkImg){ inkImg = new Image(); inkImg.src = WORLD.ink; }
+  if (!inkImg.complete) return;
+  ctx.save(); ctx.transform(...quadTransform(BOARDQ, inkImg.width, inkImg.height)); ctx.drawImage(inkImg, 0, 0); ctx.restore();
+}
+
+/* ---------- Estado de Lucía: poses y secuencias ---------- */
+function standUp(){
+  const p = me(); if (!p || p.pose === 'stand') return;
+  const s = SCENES[p.scene];
+  if (p.pose === 'swing'){ swing.riding = false; p.x = p.tx = SWING.px; p.y = p.ty = 590; }
+  else if (p.pose === 'sit' || p.pose === 'sleep'){ p.x = p.tx = p.standAt[0]; p.y = p.ty = clampBand(s, p.standAt[1]); }
+  p.seq = null; night = 0; p.fy = null; p.pose = 'stand';
+  dispatch({ type:'pose', pid:ME, pose:'stand' });
+  updateActionBar();
+}
+function runSeq(p, steps, done){ p.seq = { steps, i:0, t:0, done }; }
+function updateSeq(p, dt){
+  const q = p.seq; if (!q) return false;
+  const st = q.steps[q.i]; q.t += dt;
+  const k = clamp(q.t / st.dur, 0, 1);
+  st.upd(k);
+  if (k >= 1){ q.i++; q.t = 0; if (q.i >= q.steps.length){ p.seq = null; q.done && q.done(); } }
+  return true;
+}
+
+/* ---------- Toque en una escena ---------- */
+function hidePMenu(){ $('pmenu').hidden = true; }
+function hitProp(x, y){
+  let best = null, area = 1e9;
+  const room = me().scene;
+  for (const id in WORLD.props){
+    const o = WORLD.props[id]; if (o.room !== room || o.cont || o.held) continue;
+    const r = propRect(id), pad = Math.min(r.w, r.h) * .08;
+    if (x >= r.x + pad && x <= r.x + r.w - pad && y >= r.y + pad && y <= r.y + r.h){
+      const a = r.w*r.h; if (a < area){ area = a; best = id; }
+    }
+  }
+  return best;
+}
+function hitSurface(x, y){
+  const room = me().scene, list = SURF[room] || [];
+  let best = null, bd = 1e9;
+  for (const s of list){
+    const k = SCENES[room].H(s.fy) / 250;
+    if (x < s.x0 - 12 || x > s.x1 + 12) continue;
+    let d;
+    if (s.y0 != null){ if (y < s.y0 - 50*k || y > s.y1 + 25*k) continue; d = 0; }
+    else { if (y < s.y - 85*k || y > s.y + 22*k) continue; d = Math.abs(y - (s.y - 30*k)); }
+    if (d < bd){ bd = d; best = s; }
+  }
+  return best;
+}
+function hitCont(x, y){ for (const c of (CONT[me().scene] || [])) if (Math.hypot(x - c.x, y - c.y) <= c.r) return c; return null; }
+const inRect = (x, y, r) => x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3];
+function standPointFor(fy, x){ const s = SCENES[me().scene]; return [clamp(x, 40, s.w - 40), clampBand(s, fy + 40)]; }
+
+function walkTo(x, y, task){
+  const p = me(), s = SCENES[p.scene];
+  const tx = clamp(x, 30, s.w - 30), ty = clampBand(s, y);
+  pending = task || null; tapRing = { x:tx, y:ty, t:T };
+  dispatch({ type:'move', pid:ME, scene:p.scene, x:tx, y:ty });
+}
+
+function sceneTap(e){
+  const p = me(); if (!p || fadeTo) return;
+  if (p.seq) return;
+  const s = SCENES[p.scene];
+  const [x, y] = scr2world(e);
+
+  // en el columpio: tocarlo otra vez = más alto
+  if (p.pose === 'swing'){
+    const th = Math.sin(swing.ph)*swing.amp, sx = SWING.px + SWING.L*Math.sin(th), sy = SWING.py + SWING.L*Math.cos(th);
+    if (Math.hypot(x - sx, y - (sy - 40)) < 95){ swing.amp = Math.min(.62, swing.amp + .12); bubbleOn(p, '¡Más alto!'); if (swing.amp >= .45) setFlag('highSwing'); return; }
+  }
+  // 0) estrellas escondidas: se recogen al tocarlas
+  const tr = hitTreasure(x, y);
+  if (tr){ collectTreasure(tr); checkMissions(); return; }
+  // 1) objetos: tocar = usar (los juguetes juegan); arrastrar = mover
+  const pid = hitProp(x, y);
+  if (pid){
+    const o = WORLD.props[pid], d = PROP_DEF[pid];
+    if (d.play === 'tren'){ if (o.surf !== 'piso'){ toast('Pon el tren en el piso para que ande.'); return; } playing[pid] = { kind:'tren', t0:T, dur:5, rx:150, ry:30 }; bubbleOn(p, '¡Chu chuuu!'); return; }
+    if (d.play === 'aros'){ playing[pid] = { kind:'aros', t0:T, dur:1.8 }; sparkleBurst(o.x, o.y - 60, 10); bubbleOn(p, '¡Uno, dos, tres!'); return; }
+    playing[pid] = { kind:'aros', t0:T, dur:.6 };
+    if (!hintedDrag){ hintedDrag = true; toast('Mantén presionado y arrastra para moverlo.'); }
+    return;
+  }
+  // 2) cajas: tocar = sacar lo último que se guardó
+  const c = hitCont(x, y);
+  if (c){
+    const inside = Object.entries(WORLD.props).filter(([, o]) => o.room === p.scene && o.cont === c.id).sort((a, b) => (b[1].t||0) - (a[1].t||0));
+    if (!inside.length){ toast(`${c.name[0].toUpperCase() + c.name.slice(1)} está vacío. Arrastra cosas aquí para guardarlas.`); return; }
+    const id = inside[0][0], yy = clampBand(s, c.walk[1] - 10);
+    dispatch({ type:'place', prop:id, room:p.scene, x:c.x + (Math.random() - .5)*80, y:yy, fy:yy, surf:'piso' });
+    playing[id] = { kind:'aros', t0:T, dur:.8 }; sparkleBurst(c.x, c.y - 10, 8); checkMissions();
+    return;
+  }
+  // 3) sillas del comedor: se corren al tocarlas
+  if (p.scene === 'comedor'){
+    for (let i = 1; i >= 0; i--){
+      const r = chairRect(i);
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h){ dispatch({ type:'chair', i, out:!WORLD.chairs[i] }); return; }
+    }
+  }
+  // 4) actividades y lugares
+  for (let i = s.hot.length - 1; i >= 0; i--){
+    const h = s.hot[i];
+    if (h.kind === 'act' && actHit(h, x, y)){ startAct(h, x, y); return; }
+    if (h.kind === 'msg' && Math.hypot(x - h.x, y - h.y) <= h.r){ lucia(h.text); if (h.flag) setFlag(h.flag); return; }
+    if (h.kind === 'door' && Math.hypot(x - h.x, y - h.y) <= h.r){ if (p.pose !== 'stand') standUp(); walkTo(h.walk[0], h.walk[1], h); return; }
+    if (h.kind === 'edge' && Math.abs(x - h.x) < 90 && Math.abs(y - h.y) < 160){ if (p.pose !== 'stand') standUp(); walkTo(h.x, h.y, h); return; }
+  }
+  // 5) llevando algo en las manos: tocar una superficie = ir a ponerlo
+  if (p.carry){
+    const sf = hitSurface(x, y);
+    if (sf){
+      const [w] = propSize(p.carry, p.scene, sf.fy);
+      const px = clamp(x, sf.x0 + w*.45, sf.x1 - w*.45), py = sf.y0 != null ? clamp(y, sf.y0, sf.y1) : sf.y;
+      const [wx, wy] = standPointFor(sf.fy, px);
+      walkTo(wx, wy, { kind:'place', surf:sf, x:px, y:py }); return;
+    }
+  }
+  // 6) caminar
+  if (y > s.band[0] - 60){ if (p.pose !== 'stand') standUp(); walkTo(x, y, null); }
+}
+
+function actHit(h, x, y){
+  if (h.act === 'ball') return me().scene === 'patio' && Math.hypot(x - ball.x, y - (ball.y - ballR() - ball.z)) < ballR() + 26;
+  if (h.act === 'sand'){
+    for (let i = WORLD.towers.length - 1; i >= 0; i--){ const t = WORLD.towers[i], th = towerSize(t); if (Math.abs(x - t.x) < th*.55 && y > t.y - th*1.25 && y < t.y + 8) return true; }
+    return inRect(x, y, h.hit) && !(x > 1540 && x < 1625 && y < 572);
+  }
+  if (h.hit) return inRect(x, y, h.hit);
+  return Math.hypot(x - h.x, y - h.y) <= h.r;
+}
+function startAct(h, x, y){
+  const p = me();
+  switch (h.act){
+    case 'sit': {
+      if (p.pose !== 'stand') standUp();
+      const sx = clamp(x, h.x0, h.x1);
+      const w = h.walk === 'front' ? [sx, h.fy + 45] : [sx < h.x0 + (h.x1-h.x0)/2 ? h.x0 - 70 : h.x1 + 70, h.fy + 15];
+      walkTo(w[0], w[1], { kind:'sit', x:sx, seatY:h.seatY, fy:h.fy });
+      break;
+    }
+    case 'ball': {
+      const dx = ball.x - p.x, dy = ball.y - p.y, d = Math.hypot(dx, dy) || 1;
+      dispatch({ type:'kick', vx:dx/d*560, vy:dy/d*220 + (Math.random() - .5)*140, vz:300 });
+      setFlag('kicked'); break;
+    }
+    case 'sand': {
+      for (let i = WORLD.towers.length - 1; i >= 0; i--){
+        const t = WORLD.towers[i], th = towerSize(t);
+        if (Math.abs(x - t.x) < th*.55 && y > t.y - th*1.25 && y < t.y + 8){ interact({ kind:'untower', i }); return; }
+      }
+      interact({ kind:'tower', x, y:clamp(y, 560, 602) });
+      break;
+    }
+    case 'tv': case 'lamp': case 'board': interact({ kind:'act', h }); break;
+    default: if (p.pose !== 'stand') standUp(); walkTo(h.walk[0], h.walk[1], { kind:'act', h });
+  }
+}
+
+/* =====================================================================
+   CONTROL TIPO AVATAR WORLD
+   - Mantener presionado y arrastrar: objetos, la pelota y la propia Lucía.
+   - Lucía arrastrada por el piso camina (se ven los pasos); arrastrada hacia
+     arriba se levanta en el aire y al soltarla cae donde se suelte:
+     en el sofá se sienta, en el columpio se columpia, en la cama duerme,
+     en una puerta cambia de cuarto.
+   - Tocar (sin arrastrar) usa las cosas al instante.
+   ===================================================================== */
+let gest = null, hintedDrag = false;
+const LIFT_MARGIN = 40;
+function luciaBox(p){
+  const s = SCENES[p.scene];
+  if (p.pose === 'swing'){ const th = Math.sin(swing.ph)*swing.amp, sx = SWING.px + SWING.L*Math.sin(th), sy = SWING.py + SWING.L*Math.cos(th), H = s.H(545); return { x0:sx - H*.3, x1:sx + H*.3, y0:sy - H*.8, y1:sy + H*.2 }; }
+  if (p.pose === 'sit'){ const H = s.H(p.fy); return { x0:p.x - H*.3, x1:p.x + H*.3, y0:p.seatY - H*.78, y1:p.seatY + H*.2 }; }
+  const H = s.H(p.fy || p.y), y = p.lifted ? p.ly : p.y;
+  return { x0:p.x - H*.24, x1:p.x + H*.24, y0:y - H*.98, y1:y + 6 };
+}
+const inBox = (x, y, b) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1;
+function sceneDown(e){
+  if (!$('dialog').hidden){ closeDialog(); gest = null; return; }
+  ['rooms','ideas','pVestir','pBolso','pTareas','pTesoros'].forEach(i => $(i).hidden = true); hidePMenu();
+  const p = me(); if (!p || fadeTo || p.seq){ gest = null; return; }
+  const [x, y] = scr2world(e);
+  let kind = null, id = null;
+  if (p.carry && !p.seq){ const H = SCENES[p.scene].H(p.y), [hx, hy] = handPos(p); if (Math.abs(x - hx) < H*.22 && y > hy - H*.4 && y < hy + 10) kind = 'held'; }
+  if (!kind && p.pose !== 'sleep' && inBox(x, y, luciaBox(p))) kind = 'lucia';
+  if (!kind && !hitTreasure(x, y)){ id = hitProp(x, y); if (id) kind = 'prop'; }
+  if (!kind && p.scene === 'patio' && Math.hypot(x - ball.x, y - (ball.y - ballR() - ball.z)) < ballR() + 22) kind = 'ball';
+  gest = { kind, id, sx:e.clientX, sy:e.clientY, t0:performance.now(), drag:false, ox:0, oy:0, hist:[], pid:e.pointerId };
+  if (kind === 'lucia'){ const yy = p.lifted ? p.ly : (p.pose === 'sit' ? p.fy : p.pose === 'swing' ? 590 : p.y); gest.ox = p.x - x; gest.oy = yy - y; }
+  if (kind){ gest.holdTimer = setTimeout(() => { if (gest && !gest.drag) startDrag(e.clientX, e.clientY); }, 260); }
+}
+function sceneMove(e){
+  if (!gest || e.pointerId !== gest.pid) return;
+  const d = Math.hypot(e.clientX - gest.sx, e.clientY - gest.sy);
+  if (!gest.drag){ if (gest.kind && d > 9) startDrag(e.clientX, e.clientY); else return; }
+  updateDrag(e.clientX, e.clientY);
+}
+function sceneUp(e){
+  if (!gest || e.pointerId !== gest.pid) return;
+  clearTimeout(gest.holdTimer);
+  const g = gest; gest = null;
+  if (g.drag){ endDrag(g, e.clientX, e.clientY); return; }
+  sceneTap(e);
+}
+function fingerWorld(cx, cy){ const sc = sceneScale(); return [cx / sc + cam.x, cy / sc + cam.y]; }
+
+function startDrag(cx, cy){
+  const g = gest, p = me(); if (!g || g.drag) return;
+  g.drag = true; pending = null;
+  if (navigator.vibrate) try{ navigator.vibrate(12); }catch(e){}
+  if (g.kind === 'lucia'){
+    if (p.pose !== 'stand'){
+      const y0 = p.pose === 'sit' ? p.fy : 590;
+      swing.riding = false; p.pose = 'stand'; p.fy = null; p.y = clampBand(SCENES[p.scene].band ? SCENES[p.scene] : SCENES.sala, y0);
+      dispatch({ type:'pose', pid:ME, pose:'stand' }); updateActionBar();
+    }
+    p.dragging = true; p.tx = p.x; p.ty = p.y;
+  }
+  if (g.kind === 'prop' || g.kind === 'held'){
+    if (g.kind === 'held'){ g.id = p.carry; p.carry = null; updateActionBar(); }
+    const o = WORLD.props[g.id];
+    g.prev = { room:o.room, x:o.x, y:o.y, fy:o.fy, surf:o.surf };
+    if (g.kind === 'held') g.prev = { room:p.scene, x:p.x, y:clampBand(SCENES[p.scene], p.y + 8), fy:clampBand(SCENES[p.scene], p.y + 8), surf:'piso' };
+    dispatch({ type:'pick', prop:g.id });
+    dragProp = { id:g.id, x:o.x, y:o.y, target:null };
+  }
+  if (g.kind === 'ball'){ ball.held = true; ball.vx = ball.vy = ball.vz = 0; }
+  updateDrag(cx, cy);
+}
+let dragProp = null;
+function updateDrag(cx, cy){
+  const g = gest, p = me(), s = SCENES[p.scene];
+  const [x, y] = fingerWorld(cx, cy);
+  g.hist.push({ x, y, t:performance.now() }); if (g.hist.length > 6) g.hist.shift();
+  if (g.kind === 'lucia'){
+    const fx = clamp(x + g.ox, 30, s.w - 30), fy = y + g.oy;
+    if (fy < s.band[0] - LIFT_MARGIN){ p.lifted = true; p.x = fx; p.ly = fy; p.moving = false; }
+    else {
+      if (p.lifted){ p.lifted = false; p.y = clampBand(s, fy); p.crouch = T; }
+      p.tx = fx; p.ty = clampBand(s, fy);
+    }
+  }
+  if (dragProp){ dragProp.x = x; dragProp.y = y; dragProp.target = dropTarget(x, y, cx, cy); }
+  if (g.kind === 'ball'){
+    ball.x = clamp(x, 150, 1235); ball.y = clamp(y + ballR(), 585, 895); ball.z = 36;
+  }
+}
+function overEl(id, cx, cy){ const el = $(id); if (!el || el.hidden) return false; const r = el.getBoundingClientRect(); return cx >= r.left - 6 && cx <= r.right + 6 && cy >= r.top - 6 && cy <= r.bottom + 6; }
+function dropTarget(x, y, cx, cy){
+  const p = me(), s = SCENES[p.scene];
+  if (overEl('bBolso', cx, cy)) return { kind:'bag' };
+  const c = hitCont(x, y); if (c) return { kind:'cont', c };
+  if (inBox(x, y, luciaBox(p)) && p.pose === 'stand' && !p.carry) return { kind:'lucia' };
+  const sf = hitSurface(x, y);
+  if (sf){
+    const [w] = propSize(dragProp.id, p.scene, sf.fy);
+    const px = clamp(x, sf.x0 + w*.45, sf.x1 - w*.45), py = sf.y0 != null ? clamp(y, sf.y0, sf.y1) : sf.y;
+    const fy = sf.y0 != null ? sf.fy + (py - sf.y1) : sf.fy;
+    return { kind:'surf', sf, x:px, y:py, fy };
+  }
+  if (y > s.band[0] - 70){ const yy = clampBand(s, y); return { kind:'floor', x:clamp(x, 40, s.w - 40), y:yy, fy:yy }; }
+  return null;
+}
+function endDrag(g, cx, cy){
+  const p = me(), s = SCENES[p.scene];
+  const [x, y] = fingerWorld(cx, cy);
+  if (g.kind === 'lucia'){
+    p.dragging = false;
+    const wasLifted = p.lifted; p.lifted = false;
+    const fx = p.x, fyFeet = wasLifted ? p.ly : p.ty;
+    // ¿la soltó sobre algo?
+    for (const h of s.hot){
+      if (h.kind === 'act' && ['sit','swing','slide','sleep'].includes(h.act) && actHit(h, x, y)){
+        p.y = p.ty = clampBand(s, fyFeet); p.tx = p.x;
+        if (h.act === 'sit'){ p.standAt = [clamp(x, h.x0, h.x1), clampBand(s, h.fy + 45)]; p.x = clamp(x, h.x0, h.x1); p.seatY = h.seatY; p.fy = h.fy; dispatch({ type:'pose', pid:ME, pose:'sit' }); if (p.scene === 'sala' && WORLD.tv) setFlag('tvSit'); updateActionBar(); }
+        else if (h.act === 'swing'){ p.pose = 'swing'; swing.riding = true; swing.amp = Math.max(swing.amp, .22); dispatch({ type:'pose', pid:ME, pose:'swing' }); updateActionBar(); setFlag('swung'); }
+        else if (h.act === 'slide'){ p.x = 300; p.y = 585; slideSeq(p); }
+        else if (h.act === 'sleep'){ sleepSeq(p); }
+        save(); return;
+      }
+      if ((h.kind === 'door' && Math.hypot(x - h.x, y - h.y) <= h.r) || (h.kind === 'edge' && Math.abs(x - h.x) < 90 && Math.abs(y - h.y) < 170)){
+        p.y = p.ty = clampBand(s, fyFeet); goScene(h.go, h.at[0], h.at[1]); return;
+      }
+    }
+    if (wasLifted){ p.y = p.ty = clampBand(s, fyFeet); p.tx = p.x; p.crouch = T; bubbleOn(p, '¡Hop!'); }
+    save(); return;
+  }
+  if (g.kind === 'ball'){
+    ball.held = false; ball.z = 30;
+    const h = g.hist; let vx = 0, vy = 0;
+    if (h.length >= 2){ const a = h[0], b = h[h.length - 1], dt = Math.max(16, b.t - a.t)/1000; vx = clamp((b.x - a.x)/dt, -1100, 1100); vy = clamp((b.y - a.y)/dt, -700, 700); }
+    dispatch({ type:'kick', vx:vx*.8, vy:vy*.6, vz:220 });
+    if (Math.hypot(vx, vy) > 200) setFlag('kicked');
+    return;
+  }
+  if (dragProp){
+    const id = dragProp.id, t = dropTarget(x, y, cx, cy); dragProp = null;
+    if (!t){ dispatch({ type:'place', prop:id, ...g.prev }); playing[id] = { kind:'land', t0:T, dur:.35 }; return; }
+    if (t.kind === 'bag'){
+      if (bagItems().length >= BAG_MAX){ toast('El bolso está lleno. Saca algo primero.'); dispatch({ type:'place', prop:id, ...g.prev }); return; }
+      dispatch({ type:'store', prop:id, room:p.scene, cont:'bolso' }); toast(`${PROP_DEF[id].name} va en el bolso.`); updateBadges(); checkMissions(); return;
+    }
+    if (t.kind === 'cont'){ dispatch({ type:'store', prop:id, room:p.scene, cont:t.c.id }); sparkleBurst(t.c.x, t.c.y - 20, 10); checkMissions(); return; }
+    if (t.kind === 'lucia'){ dispatch({ type:'pick', pid:ME, prop:id }); crouch(p); updateActionBar(); checkMissions(); return; }
+    dispatch({ type:'place', prop:id, room:p.scene, x:t.x, y:t.y, fy:t.fy, surf:t.kind === 'surf' ? t.sf.id : 'piso' });
+    playing[id] = { kind:'land', t0:T, dur:.35 };
+    checkMissions();
+  }
+}
+function drawDragged(){
+  const p = me(), s = SCENES[p.scene];
+  if (dragProp){
+    const t = dragProp.target, id = dragProp.id, im = IMG['p:' + id];
+    if (t && (t.kind === 'surf' || t.kind === 'floor') && im){
+      const [w, h] = propSize(id, p.scene, t.fy);
+      ctx.save(); ctx.globalAlpha = .38 + .12*Math.sin(T*6); ctx.drawImage(im, t.x - w/2, t.y - h, w, h); ctx.restore();
+      ell(ctx, t.x, t.y, w*.4, w*.08, 0, 'rgba(60,30,20,.18)');
+    }
+    const fy = t && t.fy ? t.fy : clampBand(s, dragProp.y);
+    const [w, h] = propSize(id, p.scene, fy);
+    if (im){ ctx.save(); ctx.translate(dragProp.x, dragProp.y + h*.45); ctx.rotate(Math.sin(T*5)*.05); ctx.drawImage(im, -w/2, -h, w, h); ctx.restore(); }
+    if (t && (t.kind === 'cont' || t.kind === 'lucia')){ const [hx, hy] = t.kind === 'cont' ? [t.c.x, t.c.y] : [p.x, p.y - s.H(p.y)*.5]; ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.setLineDash([8, 6]); ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(hx, hy, 60, 0, 7); ctx.stroke(); ctx.restore(); }
+  }
+  if (p.lifted){
+    const im = spr('frente'); if (!im) return;
+    const H = s.H(clampBand(s, p.ly)), w = H*im.width/im.height, gy = clampBand(s, p.ly);
+    ell(ctx, p.x, gy, w*.36, H*.04, 0, 'rgba(60,30,20,.18)');
+    ctx.save(); ctx.translate(p.x, p.ly - H*.9); ctx.rotate(Math.sin(T*7)*.08);
+    drawAccBack('frente', -w/2, 0, w, H); ctx.drawImage(im, -w/2, 0, w, H); drawAcc('frente', -w/2, 0, w, H);
+    ctx.restore();
+  }
+}
+
+/* Al llegar al destino */
+function interact(task){
+  const p = me(), s = SCENES[p.scene];
+  switch (task.kind){
+    case 'door': case 'edge':
+      goScene(task.go, task.at[0], task.at[1]); return;
+    case 'msg': lucia(task.text); if (task.flag) setFlag(task.flag); return;
+    case 'treasure': collectTreasure(task.t); checkMissions(); return;
+    case 'pick': {
+      const o = WORLD.props[task.prop]; if (!o || o.held || o.cont || o.room !== p.scene) return;
+      crouch(p);
+      dispatch({ type:'pick', pid:ME, prop:task.prop });
+      updateActionBar();
+      return;
+    }
+    case 'place': {
+      const id = p.carry; if (!id) return;
+      const sf = task.surf;
+      let fy = sf.fy;
+      if (sf.y0 != null) fy = sf.fy + (task.y - sf.y1);
+      flyFromHands(id, p, task.x, task.y, fy);
+      dispatch({ type:'place', pid:ME, prop:id, room:p.scene, x:task.x, y:task.y, fy, surf:sf.id });
+      updateActionBar(); checkMissions();
+      return;
+    }
+    case 'store': {
+      const id = p.carry; if (!id) return;
+      dispatch({ type:'store', pid:ME, prop:id, room:p.scene, cont:task.cont.id });
+      bubbleOn(p, '¡Guardado!'); sparkleBurst(task.cont.x, task.cont.y - 20, 10);
+      updateActionBar(); checkMissions();
+      return;
+    }
+    case 'takeOut': {
+      const inside = Object.entries(WORLD.props).filter(([, o]) => o.room === p.scene && o.cont === task.cont.id).sort((a, b) => (b[1].t||0) - (a[1].t||0));
+      if (!inside.length){ lucia(`${task.cont.name[0].toUpperCase() + task.cont.name.slice(1)} está vacío. Puedo guardar cosas aquí.`); return; }
+      crouch(p); dispatch({ type:'pick', pid:ME, prop:inside[0][0] }); updateActionBar(); checkMissions();
+      return;
+    }
+    case 'chair': {
+      const i = task.i, out = !WORLD.chairs[i];
+      p.dir = 'derecha';
+      dispatch({ type:'chair', i, out });
+      bubbleOn(p, out ? '¡Uff!' : '¡Listo!');
+      return;
+    }
+    case 'sit': {
+      p.standAt = [p.x, p.y];
+      p.x = task.x; p.seatY = task.seatY; p.fy = task.fy;
+      dispatch({ type:'pose', pid:ME, pose:'sit' });
+      if (p.scene === 'sala' && WORLD.tv) setFlag('tvSit');
+      updateActionBar();
+      return;
+    }
+    case 'kick': {
+      const dx = ball.x - p.x, dy = ball.y - p.y, d = Math.hypot(dx, dy) || 1;
+      if (d > 140){ startAct({ act:'ball' }, ball.x, ball.y); return; }
+      p.dir = dx >= 0 ? 'derecha' : 'izquierda'; p.kick = T;
+      dispatch({ type:'kick', vx:dx/d*640, vy:dy/d*240 + (Math.random()-.5)*120, vz:260 });
+      setFlag('kicked');
+      return;
+    }
+    case 'tower': {
+      if (WORLD.towers.length >= 8) dispatch({ type:'untower', i:0 });
+      crouch(p); p.dir = 'derecha';
+      dispatch({ type:'tower', x:task.x, y:task.y, s:.85 + Math.random()*.4 });
+      towersPop[WORLD.towers.length - 1] = T;
+      setFlag('towers', (F().towers || 0) + 1);
+      sparkleBurst(task.x, task.y - 20, 8, '#f6dfa8');
+      return;
+    }
+    case 'untower': {
+      const t = WORLD.towers[task.i]; if (!t) return;
+      sparkleBurst(t.x, t.y - 20, 14, '#e8c98a');
+      dispatch({ type:'untower', i:task.i });
+      Object.keys(towersPop).forEach(k => delete towersPop[k]);
+      bubbleOn(p, '¡Pum!');
+      return;
+    }
+    case 'play': {
+      const id = task.prop, o = WORLD.props[id];
+      if (task.play === 'tren' && o.surf !== 'piso'){ lucia('Pon el tren en el piso para que pueda andar.'); return; }
+      if (task.play === 'tren') playing[id] = { kind:'tren', t0:T, dur:5, rx:150, ry:30 };
+      if (task.play === 'aros'){ playing[id] = { kind:'aros', t0:T, dur:1.8 }; sparkleBurst(o.x, o.y - 60, 10); }
+      bubbleOn(p, task.play === 'tren' ? '¡Chu chuuu!' : '¡Uno, dos, tres!');
+      return;
+    }
+    case 'act': {
+      const h = task.h;
+      if (h.act === 'tv'){ dispatch({ type:'tv', on:!WORLD.tv }); bubbleOn(p, WORLD.tv ? '¡Mi programa!' : 'Apagada'); }
+      if (h.act === 'lamp'){ dispatch({ type:'lamp', lamp:h.lamp, off:!WORLD.lamps[h.lamp] }); }
+      if (h.act === 'board') openBoard();
+      if (h.act === 'swing'){
+        p.pose = 'swing'; swing.riding = true; swing.amp = Math.max(swing.amp, .22);
+        dispatch({ type:'pose', pid:ME, pose:'swing' }); updateActionBar(); setFlag('swung');
+      }
+      if (h.act === 'slide') slideSeq(p);
+      if (h.act === 'sleep') sleepSeq(p);
+      return;
+    }
+  }
+}
+
+/* Tobogán */
+function slideSeq(p){
+  const fy = 515, path = [[445,398],[480,418],[520,446],[560,478],[597,506]];
+  const along = k => { const n = path.length - 1, i = Math.min(n - 1, Math.floor(k*n)), t = k*n - i; return [lerp(path[i][0], path[i+1][0], t), lerp(path[i][1], path[i+1][1], t)]; };
+  runSeq(p, [
+    { dur:.45, upd:k => { p.x = lerp(300, 292, k); p.y = lerp(585, 517, k); p.dir = 'espalda'; p.fy = null; } },
+    { dur:1.1, upd:k => { p.x = lerp(292, 345, k); p.y = lerp(517, 396, k); p.fy = fy; p.dir = 'espalda'; p.climb = k; } },
+    { dur:.4, upd:k => { p.x = lerp(345, 430, k); p.y = 395; p.fy = fy; p.dir = 'derecha'; p.climb = 0; } },
+    { dur:1.0, upd:k => { const [x, y] = along(k*k); p.pose = 'slide'; p.x = x; p.seatY = y; p.fy = fy; if (k > .96 && !p.whee){ p.whee = 1; } } },
+    { dur:.35, upd:k => { p.pose = 'stand'; p.x = lerp(597, 625, k); p.y = lerp(515, 590, k); p.fy = null; p.dir = 'frente'; } },
+  ], () => { p.tx = p.x; p.ty = p.y; p.whee = 0; bubbleOn(p, '¡Wiii!'); dispatch({ type:'pose', pid:ME, pose:'stand' }); setFlag('slid'); });
+  dispatch({ type:'pose', pid:ME, pose:'slide' });
+}
+/* Dormir */
+let night = 0;
+function sleepSeq(p){
+  p.standAt = [p.x, p.y]; p.fy = 690;
+  runSeq(p, [
+    { dur:.4, upd:k => { p.pose = 'sleep'; p.sleepK = k; night = k*.6; } },
+    { dur:4.2, upd:k => { night = .6 + Math.min(1, k*3)*.4; if (k > .85) night = 1 - (k - .85)/.15; } },
+  ], () => { night = 0; standUp(); bubbleOn(p, '¡Buenos días!'); setFlag('slept'); });
+  dispatch({ type:'pose', pid:ME, pose:'sleep' });
+}
+function crouch(p){ p.crouch = T; }
+function bubbleOn(p, text){ p.bubble = { text, until:T + 1.8 }; }
+
+/* Menú levantar / jugar */
+function showPMenu(id){
+  const o = WORLD.props[id], r = propRect(id), [sx, sy] = world2scr(o.x, r.y);
+  const m = $('pmenu');
+  m.innerHTML = `<button class="pm" type="button" data-a="pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V12M16 9.5a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-12.5 4.3L4 14.5a1.6 1.6 0 0 1 2.6-1.8L7 13"/></svg>Levantar</button>` +
+    `<button class="pm play" type="button" data-a="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10-6.5z"/></svg>Jugar</button>`;
+  m.style.left = clamp(sx, 90, vw - 90) + 'px'; m.style.top = clamp(sy - 8, 130, vh) + 'px'; m.hidden = false;
+  m.querySelectorAll('button').forEach(b => b.onclick = ev => {
+    ev.stopPropagation(); hidePMenu();
+    const [wx, wy] = standPointFor(o.fy, o.x);
+    if (b.dataset.a === 'pick') walkTo(wx, wy, { kind:'pick', prop:id });
+    else walkTo(wx - 60, wy, { kind:'play', prop:id, play:PROP_DEF[id].play });
+  });
+}
+
+/* Barra inferior: lo que lleva o la pose */
+function dropHere(silent){
+  const p = me(); if (!p || !p.carry) return;
+  const id = p.carry, s = SCENES[p.scene];
+  const off = p.dir === 'izquierda' ? -55 : p.dir === 'derecha' ? 55 : 0;
+  const y = clampBand(s, p.y + 10), x = clamp(p.x + off, 40, s.w - 40);
+  if (!silent) flyFromHands(id, p, x, y, y);
+  dispatch({ type:'place', pid:ME, prop:id, room:p.scene, x, y, fy:y, surf:'piso' });
+  updateActionBar(); checkMissions();
+}
+function updateActionBar(){
+  const a = $('action'), p = me();
+  if (mode !== 'scene' || !p){ a.hidden = true; return; }
+  if (p.carry){
+    const id = p.carry, d = PROP_DEF[id];
+    a.innerHTML = ''; a.appendChild(iconFor(id, 44));
+    a.insertAdjacentHTML('beforeend', `<span class="t">${esc(d.name)}<small>Toca dónde ponerlo</small></span><button class="btn" type="button" data-a="bag">Al bolso</button><button class="btn primary" type="button" data-a="drop">Dejar aquí</button>`);
+    a.querySelector('[data-a=drop]').onclick = () => dropHere();
+    a.querySelector('[data-a=bag]').onclick = () => putInBag();
+    a.hidden = false; return;
+  }
+  if (p.pose === 'sit' || p.pose === 'swing'){
+    a.innerHTML = `<span class="t" style="padding-left:6px">${p.pose === 'swing' ? 'En el columpio<small>Tócalo otra vez para ir más alto</small>' : 'Sentada'}</span><button class="btn primary" type="button">Levantarse</button>`;
+    a.querySelector('button').onclick = () => standUp();
+    a.hidden = false; return;
+  }
+  a.hidden = true;
+}
+function iconFor(id, size){
+  const c = document.createElement('canvas'), d = 2, im = IMG['p:' + id];
+  c.width = c.height = size*d; c.style.width = c.style.height = size + 'px';
+  if (im){ const x = c.getContext('2d'), k = Math.min(size*d*.84 / im.width, size*d*.84 / im.height); x.drawImage(im, (size*d - im.width*k)/2, (size*d - im.height*k)/2, im.width*k, im.height*k); }
+  return c;
+}
+
+/* Misión: ordenar el cuarto de juegos */
+function toysInPlace(){
+  const toys = Object.keys(PROP_DEF).filter(id => PROP_DEF[id].toy);
+  const storeSurf = new Set((SURF.juegos || []).filter(s => s.store).map(s => s.id));
+  const ok = toys.filter(id => { const o = WORLD.props[id]; return o.room === 'juegos' && !o.held && (o.cont === 'caja' || storeSurf.has(o.surf)); });
+  return [ok.length, toys.length];
+}
+function updateMission(){
+  const m = $('mission'), p = me();
+  if (mode !== 'scene' || !p || p.scene !== 'juegos' || WORLD.done.ordenar){ m.hidden = true; return; }
+  const [a, b] = toysInPlace();
+  m.innerHTML = `Ordena los juguetes <span class="bar"><i style="width:${a/b*100}%"></i></span><span class="n">${a} de ${b}</span>`;
+  m.hidden = false;
+}
+/* =====================================================================
+   PILARES TIPO AVATAR WORLD
+   1) Personalización (Vestidor)   2) Tesoros escondidos (descubrir)
+   3) Tareas guiadas con premios    4) Bolso para llevar varias cosas
+   ===================================================================== */
+const LOOK_OPTS = {
+  overol:   [ { id:'rosado', name:'Rosado', sw:'#f48fb6' }, { id:'azul', name:'Azul', h:208, sw:'#7fb2f0' }, { id:'amarillo', name:'Amarillo', h:46, sw:'#f6d35a' },
+              { id:'lila', name:'Lila', h:272, sw:'#b9a3ff' }, { id:'verde', name:'Verde', h:140, sw:'#7fd39a' }, { id:'rojo', name:'Rojo', h:356, s:1.15, l:.86, sw:'#e8505b' } ],
+  monio:    [ { id:'amarillo', name:'Amarillo', sw:'#ffd23f' }, { id:'rosado', name:'Rosado', h:332, sw:'#ff9ec0' }, { id:'verde', name:'Verde', h:125, sw:'#8fd88a' },
+              { id:'lila', name:'Lila', h:275, sw:'#c3a8ff' }, { id:'azul', name:'Azul', h:205, sw:'#7cc0ff' }, { id:'rojo', name:'Rojo', h:0, s:1.1, l:.85, sw:'#e8505b' } ],
+  camiseta: [ { id:'amarillo', name:'Amarilla', sw:'#ffd84d' }, { id:'blanca', name:'Blanca', s:0, l:1.3, sw:'#ffffff' }, { id:'lila', name:'Lila', h:275, sw:'#c9b5ff' },
+              { id:'naranja', name:'Naranja', h:26, sw:'#ffae5c' }, { id:'celeste', name:'Celeste', h:200, sw:'#9fd6ff' }, { id:'menta', name:'Menta', h:150, sw:'#a8ecc4' } ],
+  acc:      [ { id:'ninguno', name:'Nada' }, { id:'gafas', name:'Gafas de sol' }, { id:'orejitas', name:'Orejitas de oso' }, { id:'sombrero', name:'Sombrero de flores' },
+              { id:'gorra', name:'Gorra' }, { id:'alas', name:'Alas de mariposa' }, { id:'corona', name:'Corona' } ],
+};
+const LOOK_LABEL = { overol:'Overol', monio:'Moño', camiseta:'Camiseta', acc:'Accesorio' };
+const optName = key => { const [g, id] = key.split(':'); const o = LOOK_OPTS[g].find(x => x.id === id); return (g === 'acc' ? '' : LOOK_LABEL[g] + ' ') + (o ? o.name.toLowerCase() : id); };
+
+/* Recolor del sprite: solo cambia los píxeles de la prenda elegida (por tono y por zona del cuerpo). */
+const sprCache = {};
+function rgb2hsl(r, g, b){ r/=255; g/=255; b/=255; const mx = Math.max(r,g,b), mn = Math.min(r,g,b); let h = 0, s = 0; const l = (mx+mn)/2; if (mx !== mn){ const d = mx-mn; s = l > .5 ? d/(2-mx-mn) : d/(mx+mn); h = mx === r ? (g-b)/d + (g < b ? 6 : 0) : mx === g ? (b-r)/d + 2 : (r-g)/d + 4; h *= 60; } return [h, s, l]; }
+function hsl2rgb(h, s, l){ h = ((h % 360) + 360) % 360 / 360; if (s === 0) return [l*255, l*255, l*255]; const q = l < .5 ? l*(1+s) : l+s-l*s, p = 2*l-q; const f = t => { t = (t+1)%1; return t < 1/6 ? p+(q-p)*6*t : t < .5 ? q : t < 2/3 ? p+(q-p)*(2/3-t)*6 : p; }; return [f(h+1/3)*255, f(h)*255, f(h-1/3)*255]; }
+function spr(view){
+  const im = IMG[view] || IMG.frente; if (!im) return null;
+  const L = WORLD.look || {}, key = `${view}|${L.overol}|${L.monio}|${L.camiseta}`;
+  if (sprCache[key]) return sprCache[key];
+  if (L.overol === 'rosado' && L.monio === 'amarillo' && L.camiseta === 'amarillo') return (sprCache[key] = im);
+  const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+  const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+  let d; try{ d = x.getImageData(0, 0, c.width, c.height); }catch(e){ return (sprCache[key] = im); }
+  const px = d.data, W = c.width, H = c.height;
+  const ov = LOOK_OPTS.overol.find(o => o.id === L.overol), mo = LOOK_OPTS.monio.find(o => o.id === L.monio), ca = LOOK_OPTS.camiseta.find(o => o.id === L.camiseta);
+  const apply = (i, h, s, l, opt, base) => {
+    const nh = opt.h != null ? h + (opt.h - base) : h, ns = clamp(s*(opt.s ?? 1), 0, 1), nl = clamp(l*(opt.l ?? 1), 0, .97);
+    const [r, g, b] = hsl2rgb(nh, ns, nl); px[i] = r; px[i+1] = g; px[i+2] = b;
+  };
+  for (let yy = 0; yy < H; yy++){
+    const fy = yy / H;
+    for (let xx = 0; xx < W; xx++){
+      const i = (yy*W + xx)*4; if (px[i+3] < 8) continue;
+      const [h, s, l] = rgb2hsl(px[i], px[i+1], px[i+2]);
+      const pink = (h >= 312 || h <= 6) && s > .22 && l > .3 && l < .93;
+      const yellow = h >= 36 && h <= 62 && s > .5 && l > .35 && l < .9;
+      if (pink && fy > .46 && fy < .865 && ov.id !== 'rosado') apply(i, h, s, l, ov, 340);
+      else if (yellow && fy < .34 && mo.id !== 'amarillo') apply(i, h, s, l, mo, 48);
+      else if (yellow && fy > .38 && fy < .68 && ca.id !== 'amarillo') apply(i, h, s, l, ca, 48);
+    }
+  }
+  x.putImageData(d, 0, 0);
+  return (sprCache[key] = c);
+}
+/* Accesorios dibujados sobre la cabeza. (x0, top, w, H) = caja del sprite. */
+const HEAD = { frente:{ cx:.5, eye:.32, ex:[.39,.61] }, derecha:{ cx:.56, eye:.32, ex:[.74] }, izquierda:{ cx:.44, eye:.32, ex:[.26] }, espalda:{ cx:.5, eye:null } };
+function drawAccBack(view, x0, top, w, H){
+  if ((WORLD.look || {}).acc !== 'alas') return;
+  const cx = x0 + w*HEAD[view].cx, cy = top + H*.5, k = 1 + Math.sin(T*6)*.06, s = H/240;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k*s, s);
+  ell(ctx, -30, -14, 32, 22, -.6, 'rgba(255,167,206,.9)'); ell(ctx, 30, -14, 32, 22, .6, 'rgba(255,167,206,.9)');
+  ell(ctx, -24, 18, 20, 15, .5, 'rgba(185,163,255,.95)'); ell(ctx, 24, 18, 20, 15, -.5, 'rgba(185,163,255,.95)');
+  circ(ctx, -34, -16, 6, '#fff'); circ(ctx, 34, -16, 6, '#fff');
+  ctx.restore();
+}
+function drawAcc(view, x0, top, w, H){
+  const a = (WORLD.look || {}).acc; if (!a || a === 'ninguno' || a === 'alas') return;
+  const hd = HEAD[view] || HEAD.frente, cx = x0 + w*hd.cx, s = H/240;
+  ctx.save();
+  if (a === 'gafas' && hd.eye){
+    const ey = top + H*hd.eye;
+    hd.ex.forEach(ex => { const gx = x0 + w*ex; ctx.fillStyle = 'rgba(30,25,45,.92)'; rr(ctx, gx - 13*s, ey - 9*s, 26*s, 18*s, 8*s); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(ctx, gx - 9*s, ey - 6*s, 8*s, 5*s, 2*s); ctx.fill(); });
+    if (hd.ex.length === 2){ ctx.strokeStyle = '#ff5c8a'; ctx.lineWidth = 3*s; ctx.beginPath(); ctx.moveTo(x0 + w*hd.ex[0] + 13*s, top + H*hd.eye - 2*s); ctx.lineTo(x0 + w*hd.ex[1] - 13*s, top + H*hd.eye - 2*s); ctx.stroke(); }
+  }
+  if (a === 'corona'){
+    const y = top + H*.035, cw = 46*s;
+    ctx.fillStyle = vgrad(ctx, y - 26*s, y, '#fff09a', '#f2b600');
+    ctx.beginPath(); ctx.moveTo(cx - cw/2, y); ctx.lineTo(cx - cw/2, y - 16*s); ctx.lineTo(cx - cw/4, y - 6*s); ctx.lineTo(cx, y - 26*s); ctx.lineTo(cx + cw/4, y - 6*s); ctx.lineTo(cx + cw/2, y - 16*s); ctx.lineTo(cx + cw/2, y); ctx.closePath(); ctx.fill();
+    circ(ctx, cx, y - 6*s, 3.5*s, '#ff5c8a'); circ(ctx, cx - cw/3, y - 4*s, 3*s, '#6c8cff'); circ(ctx, cx + cw/3, y - 4*s, 3*s, '#3fa45b');
+  }
+  if (a === 'sombrero'){
+    const y = top + H*.1;
+    ell(ctx, cx, y, 70*s, 14*s, 0, '#f3d27a'); ctx.beginPath(); ctx.ellipse(cx, y - 2*s, 38*s, 30*s, 0, Math.PI, 0); ctx.fillStyle = '#f7dd8f'; ctx.fill();
+    ctx.fillStyle = '#ff8fb8'; ctx.fillRect(cx - 38*s, y - 10*s, 76*s, 7*s);
+    [['#ff8fb8', -22], ['#fff', -8], ['#ffd23f', 8]].forEach(([col, dx]) => { for (let k = 0; k < 5; k++) circ(ctx, cx + dx*s + Math.cos(k*1.256)*5*s, y - 8*s + Math.sin(k*1.256)*5*s, 4*s, col); circ(ctx, cx + dx*s, y - 8*s, 3*s, '#ffb23f'); });
+  }
+  if (a === 'gorra'){
+    const y = top + H*.1, dir = view === 'izquierda' ? -1 : view === 'derecha' ? 1 : 0;
+    ctx.beginPath(); ctx.ellipse(cx, y, 40*s, 34*s, 0, Math.PI, 0); ctx.fillStyle = '#6c8cff'; ctx.fill();
+    if (view === 'frente') ell(ctx, cx, y + 2*s, 44*s, 9*s, 0, '#4a6fd6'); else if (dir) ell(ctx, cx + dir*44*s, y + 2*s, 26*s, 7*s, 0, '#4a6fd6');
+    circ(ctx, cx, y - 34*s, 5*s, '#ffd23f'); if (view !== 'espalda') star(ctx, cx + (dir*10)*s, y - 14*s, 9*s, 4*s, 5, '#ffd23f');
+  }
+  if (a === 'orejitas'){
+    const y = top + H*.075;
+    [-1, 1].forEach(k => { if ((view === 'derecha' && k < 0) || (view === 'izquierda' && k > 0)) return; ball3(ctx, cx + k*30*s, y, 15*s, '#a8703f', '#c99260'); circ(ctx, cx + k*30*s, y, 8*s, '#f2b9a6'); });
+  }
+  ctx.restore();
+}
+
+/* ---------- Tesoros: estrellas de Bubu escondidas ---------- */
+const moved = id => { const o = WORLD.props[id]; if (!o) return false; const [r, n] = id.split('.'), b = BOX[r][n]; return !!o.cont || o.held || o.room !== r || Math.hypot(o.x - (b.x + b.w/2), o.y - (b.y + b.h)) > 18; };
+const F = () => WORLD.flags;
+const TREASURES = [
+  { id:'cojin', room:'sala', x:1000, y:530, fy:635, hint:'Algo brilla debajo de un cojín de la sala.', cond:() => moved('sala.cojin_azul') },
+  { id:'tele', room:'sala', x:1600, y:504, fy:720, hint:'Prende la tele y mira el mueble.', cond:() => WORLD.tv },
+  { id:'silla', room:'comedor', x:650, y:668, fy:670, hint:'Corre una silla del comedor.', cond:() => WORLD.chairs[1] },
+  { id:'florero', room:'comedor', x:832, y:490, fy:686, hint:'¿Qué hay debajo del florero?', cond:() => moved('comedor.florero') },
+  { id:'jirafa', room:'juegos', x:100, y:503, fy:640, hint:'Mueve la jirafa del estante.', cond:() => moved('juegos.jirafa') },
+  { id:'tablero', room:'juegos', x:1605, y:512, fy:700, hint:'Haz un dibujo en el tablero.', cond:() => F().drew },
+  { id:'siesta', room:'habitacion', x:300, y:500, fy:690, hint:'Duerme una siesta en tu cama.', cond:() => F().slept && me()?.pose !== 'sleep' },
+  { id:'peluches', room:'habitacion', x:1310, y:396, fy:610, hint:'Mueve los peluches de la estantería.', cond:() => moved('habitacion.conejo') || moved('habitacion.osito2') },
+  { id:'arena', room:'patio', x:1460, y:588, fy:620, hint:'Construye 3 castillos de arena.', cond:() => (F().towers || 0) >= 3 },
+  { id:'columpio', room:'patio', x:880, y:600, fy:600, hint:'Columpiate muy, muy alto.', cond:() => F().highSwing },
+  { id:'tobogan', room:'patio', x:640, y:598, fy:598, hint:'Baja por el tobogán.', cond:() => F().slid },
+  { id:'buzon', room:'calle', x:1180, y:712, fy:712, hint:'Revisa el buzón de la casa.', cond:() => F().mail },
+];
+const STAR_REWARDS = { 2:'acc:gafas', 4:'overol:lila', 6:'acc:orejitas', 8:'monio:rojo', 10:'acc:alas', 12:'acc:corona' };
+const foundCount = () => Object.keys(WORLD.found || {}).length;
+function visibleTreasures(room){ return TREASURES.filter(t => t.room === room && !WORLD.found[t.id] && t.cond()); }
+function drawTreasure(t){
+  const H = SCENES[t.room].H(t.fy), r = H*.065, y = t.y - r*1.2 - Math.abs(Math.sin(T*3 + t.x))*r*.5;
+  sunGlow(ctx, t.x, y, r*3.2, 'rgba(255,226,110,.55)');
+  ctx.save(); ctx.translate(t.x, y); ctx.rotate(Math.sin(T*2 + t.x)*.15);
+  star(ctx, 0, 0, r*1.25, r*.58, 5, '#f2b600'); star(ctx, 0, -r*.08, r*1.02, r*.47, 5, '#ffd84a'); star(ctx, -r*.18, -r*.25, r*.35, r*.16, 5, '#fff7c9');
+  ctx.restore();
+}
+function hitTreasure(x, y){
+  for (const t of visibleTreasures(me().scene)){ const H = SCENES[t.room].H(t.fy), r = H*.065; if (Math.hypot(x - t.x, y - (t.y - r*1.4)) < r*2.2 + 14) return t; }
+  return null;
+}
+function collectTreasure(t){
+  if (WORLD.found[t.id]) return;
+  dispatch({ type:'found', id:t.id });
+  const n = foundCount();
+  sparkleBurst(t.x, t.y - 30, 18, '#ffd84a');
+  bubbleOn(me(), '¡Una estrella!');
+  let msg = `¡Encontraste una estrella de Bubu! Llevas ${n} de ${TREASURES.length}.`;
+  if (STAR_REWARDS[n]){ unlock(STAR_REWARDS[n]); msg += ` Ganaste: ${optName(STAR_REWARDS[n])}. Póntelo en Vestir.`; }
+  toast(msg); updateBadges();
+  if (n === TREASURES.length){ confetti(); setTimeout(() => say('¡Increíble!', 'Encontraste todas las estrellas de Bubu de la casa. ¡Eres una gran exploradora!', 'assets/lucia_cara.webp'), 600); }
+}
+
+/* ---------- Tareas guiadas ---------- */
+const TASKS = [
+  { id:'ordenar', name:'Ordena los juguetes', how:'Guarda los 4 juguetes del tapete del cuarto de juegos.', reward:'acc:sombrero', done:() => { const [a, b] = toysInPlace(); return a >= b; } },
+  { id:'mesa', name:'Pon la mesa bonita', how:'Deja el florero y 2 cosas más sobre la mesa del comedor.', reward:'camiseta:celeste', done:() => { const on = Object.entries(WORLD.props).filter(([, o]) => o.room === 'comedor' && o.surf === 'mesaComedor' && !o.cont && !o.held); return on.length >= 3 && on.some(([id]) => id === 'comedor.florero'); } },
+  { id:'tele', name:'Hora de la tele', how:'Prende la tele de la sala y siéntate en el sofá.', reward:'camiseta:menta', done:() => F().tvSit },
+  { id:'dormir', name:'Hora de dormir', how:'Duerme en tu cama.', reward:'overol:verde', done:() => F().slept },
+  { id:'artista', name:'Pequeña artista', how:'Haz un dibujo en el tablero del cuarto de juegos.', reward:'monio:azul', done:() => F().drew },
+  { id:'patio', name:'Día de patio', how:'Columpiate, baja por el tobogán y patea la pelota.', reward:'acc:gorra', done:() => F().swung && F().slid && F().kicked },
+  { id:'castillos', name:'Constructora de arena', how:'Haz 3 castillos en el arenero.', reward:'overol:rojo', done:() => (F().towers || 0) >= 3 },
+];
+function unlock(key){ if (!WORLD.unlocked.includes(key)) dispatch({ type:'unlock', key }); }
+function checkMissions(){
+  for (const t of TASKS){
+    if (WORLD.done[t.id] || !t.done()) continue;
+    WORLD.done[t.id] = 1; unlock(t.reward); saveSoon();
+    confetti();
+    setTimeout(() => say('¡Tarea cumplida!', `${t.name}. Ganaste: ${optName(t.reward)}. Búscalo en Vestir.`, 'assets/lucia_cara.webp'), 350);
+  }
+  updateMission(); updateBadges();
+}
+function setFlag(k, v = true){ if (WORLD.flags[k] === v) return; dispatch({ type:'flag', key:k, val:v }); checkMissions(); }
+
+/* ---------- Bolso ---------- */
+const BAG_MAX = 6;
+const bagItems = () => Object.entries(WORLD.props).filter(([, o]) => o.cont === 'bolso').sort((a, b) => (a[1].t||0) - (b[1].t||0)).map(([id]) => id);
+function putInBag(){
+  const p = me(); if (!p || !p.carry) return;
+  if (bagItems().length >= BAG_MAX){ toast('El bolso está lleno. Saca algo primero.'); return; }
+  const id = p.carry;
+  dispatch({ type:'store', pid:ME, prop:id, room:p.scene, cont:'bolso' });
+  toast(`${PROP_DEF[id].name} va en el bolso. Puedes sacarlo en cualquier cuarto.`);
+  updateActionBar(); checkMissions();
+}
+
+/* ---------- Paneles: Vestir, Bolso, Tareas, Tesoros ---------- */
+function openPanel(which){
+  const ids = ['rooms','ideas','pVestir','pBolso','pTareas','pTesoros'];
+  const el = $(which), wasOpen = !el.hidden;
+  ids.forEach(i => $(i).hidden = true);
+  if (wasOpen) return;
+  if (which === 'pVestir') renderVestir();
+  if (which === 'pBolso') renderBolso();
+  if (which === 'pTareas') renderTareas();
+  if (which === 'pTesoros') renderTesoros();
+  el.hidden = false;
+}
+function renderVestir(){
+  const el = $('pVestir'); el.innerHTML = '<h3>Vestir a Lucía</h3>';
+  const pv = document.createElement('canvas'); pv.className = 'pv'; pv.width = 220; pv.height = 300; el.appendChild(pv);
+  const draw = () => {
+    const c = pv.getContext('2d'), im = spr('frente'); c.clearRect(0, 0, 220, 300); if (!im) return;
+    const H = 270, w = H*im.width/im.height, x0 = 110 - w/2, top = 18;
+    const keep = ctx; ctx = c; drawAccBack('frente', x0, top, w, H); c.drawImage(im, x0, top, w, H); drawAcc('frente', x0, top, w, H); ctx = keep;
+  };
+  for (const g of ['overol','monio','camiseta','acc']){
+    const row = document.createElement('div'); row.className = 'lrow';
+    row.innerHTML = `<b>${LOOK_LABEL[g]}</b>`;
+    const sw = document.createElement('div'); sw.className = 'sws';
+    for (const o of LOOK_OPTS[g]){
+      const key = `${g}:${o.id}`, ok = WORLD.unlocked.includes(key), cur = WORLD.look[g] === o.id;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'sw' + (cur ? ' sel' : '') + (ok ? '' : ' lock') + (g === 'acc' ? ' txt' : '');
+      if (g === 'acc') b.textContent = o.name; else { b.style.background = o.sw; b.setAttribute('aria-label', o.name); }
+      b.title = ok ? o.name : 'Bloqueado';
+      b.onclick = () => {
+        if (!ok){ toast(lockHint(key)); return; }
+        dispatch({ type:'look', key:g, val:o.id }); renderVestir();
+      };
+      sw.appendChild(b);
+    }
+    row.appendChild(sw); el.appendChild(row);
+  }
+  draw();
+}
+function lockHint(key){
+  const t = TASKS.find(t => t.reward === key); if (t) return `Se gana con la tarea "${t.name}".`;
+  const n = Object.keys(STAR_REWARDS).find(k => STAR_REWARDS[k] === key); if (n) return `Se gana al encontrar ${n} estrellas de Bubu.`;
+  return 'Pronto';
+}
+function renderBolso(){
+  const el = $('pBolso'), items = bagItems(), p = me();
+  el.innerHTML = `<h3>Mi bolso <small>${items.length} de ${BAG_MAX}</small></h3>`;
+  if (!items.length){ el.insertAdjacentHTML('beforeend', '<div class="idea"><span>Está vacío. Cuando lleves algo en las manos, toca "Al bolso" para guardarlo y llevarlo a otro lugar.</span></div>'); return; }
+  const grid = document.createElement('div'); grid.className = 'bag';
+  for (const id of items){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'slot';
+    b.appendChild(iconFor(id, 54)); b.insertAdjacentHTML('beforeend', `<span>${esc(PROP_DEF[id].name)}</span>`);
+    b.onclick = () => {
+      if (p.carry){ toast('Primero deja lo que tienes en las manos.'); return; }
+      standUp(); crouch(p); dispatch({ type:'pick', pid:ME, prop:id }); $('pBolso').hidden = true; updateActionBar();
+    };
+    grid.appendChild(b);
+  }
+  el.appendChild(grid);
+}
+function renderTareas(){
+  const el = $('pTareas'), n = TASKS.filter(t => WORLD.done[t.id]).length;
+  el.innerHTML = `<h3>Tareas <small>${n} de ${TASKS.length}</small></h3>` + TASKS.map(t => `<div class="task${WORLD.done[t.id] ? ' ok' : ''}"><i>${WORLD.done[t.id] ? '✓' : ''}</i><div><b>${esc(t.name)}</b><span>${esc(t.how)}</span><em>Premio: ${esc(optName(t.reward))}</em></div></div>`).join('');
+}
+function renderTesoros(){
+  const el = $('pTesoros'), n = foundCount();
+  el.innerHTML = `<h3>Estrellas de Bubu <small>${n} de ${TREASURES.length}</small></h3><div class="stars">` +
+    TREASURES.map(t => `<div class="st${WORLD.found[t.id] ? ' ok' : ''}" title="${esc(SCENES[t.room].name)}"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z"/></svg></div>`).join('') + '</div>' +
+    '<div class="idea"><b>Pistas</b><span>' + (TREASURES.filter(t => !WORLD.found[t.id]).slice(0, 3).map(t => `${esc(SCENES[t.room].name)}: ${esc(t.hint)}`).join('<br>') || '¡Las encontraste todas!') + '</span></div>' +
+    '<div class="idea"><b>Premios</b><span>' + Object.entries(STAR_REWARDS).map(([k, v]) => `${k} estrellas: ${esc(optName(v))}${n >= +k ? ' ✓' : ''}`).join('<br>') + '</span></div>';
+}
+function updateBadges(){
+  const n = foundCount();
+  $('starN').textContent = n; $('taskN').textContent = TASKS.filter(t => WORLD.done[t.id]).length + '/' + TASKS.length;
+  const b = bagItems().length; $('bagN').textContent = b; $('bagN').hidden = !b;
+}
+
+/* ---------- Efectos ---------- */
+const parts = [];
+function sparkleBurst(x, y, n, col){
+  for (let i = 0; i < n; i++){ const a = Math.random()*Math.PI*2, v = 60 + Math.random()*120; parts.push({ w:true, x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v - 60, life:.7 + Math.random()*.4, t:0, col:col || '#fff6b0', r:3 + Math.random()*3 }); }
+}
+function confetti(){
+  const cols = ['#ffd23f','#ff8fb8','#6c8cff','#3fa45b','#ff8a3d','#b9a3ff'];
+  for (let i = 0; i < 140; i++) parts.push({ w:false, x:Math.random()*vw, y:-20 - Math.random()*vh*.4, vx:(Math.random()-.5)*80, vy:120 + Math.random()*160, life:3.2, t:0, col:cols[i % 6], r:4 + Math.random()*4, rot:Math.random()*6 });
+}
+const flights = [];
+function flyFromHands(id, p, x, y, fy){
+  const [hx, hy] = handPos(p);
+  flights.push({ id, x0:hx, y0:hy, x1:x, y1:y, fy, t:0 });
+  playing[id] = { kind:'land', t0:T + .35, dur:.35 };
+}
+function handPos(p){
+  const s = SCENES[p.scene], H = s.H(p.y);
+  const off = p.dir === 'izquierda' ? -.2*H : p.dir === 'derecha' ? .2*H : 0;
+  return [p.x + off, p.y - H*.3];
+}
+
+/* ---------- Vida en la calle ---------- */
+const cars = [], peds = [];
+let carTimer = 2, pedTimer = 1;
+const CAR_COLORS = ['#ff6f6f','#6c8cff','#ffd23f','#3fa45b','#ff8a3d','#b9a3ff','#fff4e6'];
+const NEIGHBORS = ['juan','lala','bubu'];
+function seedStreet(){ carTimer = 1.5; pedTimer = 1; spawnPed(Math.random()*1900); }
+function spawnCar(){ const dir = Math.random() < .5 ? 1 : -1; cars.push({ x: dir > 0 ? -260 : 2200, y: dir > 0 ? 872 : 834, dir, v: 260 + Math.random()*140, col: CAR_COLORS[Math.floor(Math.random()*CAR_COLORS.length)], kind: Math.random() < .25 ? 'van' : 'car' }); }
+function spawnPed(x0){
+  const dir = Math.random() < .5 ? 1 : -1, s = SCENES.calle;
+  peds.push({ char: NEIGHBORS[Math.floor(Math.random()*NEIGHBORS.length)], x: x0 ?? (dir > 0 ? -60 : s.w + 60), y: s.band[0] + 8 + Math.random()*(s.band[1]-s.band[0]-10), dir, v: 55 + Math.random()*30, walk: Math.random()*6, greeted:false, bubble:null });
+}
+function updateStreet(dt){
+  carTimer -= dt; pedTimer -= dt;
+  if (carTimer <= 0){ spawnCar(); carTimer = 4 + Math.random()*6; }
+  if (pedTimer <= 0){ if (peds.length < 3) spawnPed(); pedTimer = 5 + Math.random()*7; }
+  for (const c of cars) c.x += c.dir * c.v * dt;
+  for (let i = cars.length - 1; i >= 0; i--) if (cars[i].x < -320 || cars[i].x > 2300) cars.splice(i, 1);
+  const p = me();
+  for (const n of peds){
+    n.x += n.dir * n.v * dt; n.walk += dt * 9;
+    if (p && !n.greeted && Math.abs(n.x - p.x) < 90 && Math.abs(n.y - p.y) < 50){ n.greeted = true; n.bubble = { text:'¡Hola, Lucía!', until:T + 2.2 }; }
+    if (n.bubble && T > n.bubble.until) n.bubble = null;
+  }
+  for (let i = peds.length - 1; i >= 0; i--) if (peds[i].x < -120 || peds[i].x > 2060) peds.splice(i, 1);
+}
+
+/* ---------- Bucle ---------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(.05, (now - last)/1000); last = now; T += dt;
+  update(dt); render(); renderFx(dt);
+  requestAnimationFrame(frame);
+}
+function update(dt){
+  if (fadeTo){
+    fadeTo.t += dt;
+    if (fadeTo.t >= .28 && !fadeTo.done){ fadeTo.done = true; fadeTo.fn(); fade = 1; }
+    if (fadeTo.t >= .3) fadeTo = null;
+  } else if (fade > 0) fade = Math.max(0, fade - dt*2.8);
+  if (mode === 'map'){
+    if (mapCam.anim){
+      const a = mapCam.anim; a.t = Math.min(1, a.t + dt*1.8); const k = ease(a.t);
+      mapCam.cx = lerp(a.from.cx, a.to.cx, k); mapCam.cy = lerp(a.from.cy, a.to.cy, k); mapCam.z = lerp(a.from.z, a.to.z, k);
+      clampMap(); if (a.t >= 1) mapCam.anim = null;
+    }
+    updateLabels();
+  }
+  if (mode === 'scene'){
+    const p = me(), s = SCENES[p.scene];
+    if (p.lifted){ p.moving = false; }
+    else if (!updateSeq(p, dt) && p.pose === 'stand'){
+      const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy);
+      if (d > 2){
+        const speed = s.H(p.y) * (p.dragging ? 3 : 1.8), st = Math.min(d, speed*dt);
+        p.x += dx/d*st; p.y += dy/d*st; p.moving = true; p.walk += dt*10; p.idle = 0;
+        p.dir = Math.abs(dx) > Math.abs(dy)*.7 ? (dx > 0 ? 'derecha' : 'izquierda') : (dy < 0 ? 'espalda' : 'frente');
+      } else {
+        if (p.moving){ p.moving = false; save(); }
+        p.idle += dt; if (p.idle > 1.4 && !p.carry && T - (p.kick || 0) > 1) p.dir = 'frente';
+        if (pending){ const h = pending; pending = null; interact(h); }
+      }
+    } else p.moving = false;
+    if (p.bubble && T > p.bubble.until) p.bubble = null;
+    if (s.street) updateStreet(dt);
+    if (p.scene === 'patio'){ updateBall(dt); updateSwing(dt); }
+    for (let i = 0; i < 2; i++) chairAnim[i] = lerp(chairAnim[i], WORLD.chairs[i], Math.min(1, dt*6));
+    for (let i = flights.length - 1; i >= 0; i--){ flights[i].t += dt/.35; if (flights[i].t >= 1) flights.splice(i, 1); }
+    const [tx, ty] = camTarget(), k = fade > .5 ? 1 : Math.min(1, dt*5);
+    cam.x += (tx - cam.x)*k; cam.y += (ty - cam.y)*k;
+  }
+}
+
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#2a2147'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (mode === 'intro' && IMG.ciudad){
+    const s = Math.max(vw / MAP_W, vh / MAP_H) * 1.12, drift = Math.sin(T*.05)*.5 + .5, w = MAP_W*s, h = MAP_H*s;
+    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.drawImage(IMG.ciudad, -(w - vw)*drift, -(h - vh)/2, w, h);
+  }
+  if (mode === 'map') renderMap();
+  if (mode === 'scene') renderScene();
+  if (fadeTo || fade > 0){
+    const a = fadeTo ? Math.min(1, fadeTo.t/.28) : fade;
+    ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle = `rgba(255,236,200,${a})`; ctx.fillRect(0, 0, cv.width, cv.height);
+  }
+}
+function renderMap(){
+  const s = mapBase()*mapCam.z;
+  ctx.setTransform(s*dpr, 0, 0, s*dpr, (vw/2 - mapCam.cx*s)*dpr, (vh/2 - mapCam.cy*s)*dpr);
+  if (IMG.ciudad) ctx.drawImage(IMG.ciudad, 0, 0, MAP_W, MAP_H);
+  const k = nearMix();
+  if (k > 0 && IMG.cerca){ ctx.save(); ctx.globalAlpha = k; ctx.transform(MC[0], MC[3], MC[1], MC[4], MC[2], MC[5]); ctx.drawImage(IMG.cerca, 0, 0); ctx.restore(); }
+  ctx.globalAlpha = .55 * (1 - k*.6);
+  for (let i = 0; i < 4; i++){ const x = ((T*12 + i*620) % (MAP_W + 600)) - 300, y = 90 + (i*137) % 420; cloudShape(ctx, x, y, 1.6 + (i%2)*.6); }
+  ctx.globalAlpha = 1;
+}
+function renderScene(){
+  const p = me(), s = SCENES[p.scene], sc = sceneScale(), room = p.scene;
+  ctx.setTransform(sc*dpr, 0, 0, sc*dpr, -cam.x*sc*dpr, -cam.y*sc*dpr);
+  if (s.street) drawRoad(s);
+  const im = IMG[s.img]; if (im) ctx.drawImage(im, 0, 0, s.street ? 1942 : s.w, s.street ? 809 : s.h);
+  if (room === 'sala') drawTV();
+  if (room === 'juegos') drawInk();
+  drawLampsOff(room);
+  // guías mientras lleva algo
+  if (p.carry) drawGuides(room);
+  for (const h of s.hot) if (h.kind === 'door' || h.kind === 'edge') drawExitTag(h);
+  for (const h of s.hot) if (h.kind === 'msg' || h.kind === 'act') drawSparkle(h);
+  // entidades ordenadas por profundidad
+  const ents = [];
+  for (const id in WORLD.props){
+    const o = WORLD.props[id];
+    if (o.room !== room || o.cont || o.held || flights.some(f => f.id === id)) continue;
+    ents.push({ y:o.fy, draw:() => drawProp(id) });
+  }
+  if (room === 'comedor'){
+    ents.push({ y:680, draw:() => drawChair(0) }); ents.push({ y:684, draw:() => drawChair(1) });
+    ents.push({ y:686.5, draw:() => { if (IMG.pata){ const b = BOX.comedor.pata; ctx.drawImage(IMG.pata, b.x, b.y, b.w, b.h); } } });
+  }
+  if (room === 'patio'){
+    ents.push({ y:ball.y, draw:drawBall });
+    ents.push({ y:521, draw:drawSwing });
+    WORLD.towers.forEach((t, i) => ents.push({ y:t.y, draw:() => drawTower(t, i) }));
+  }
+  for (const t of visibleTreasures(room)) ents.push({ y:t.fy + .2, draw:() => drawTreasure(t) });
+  if (p.pose !== 'swing' && !p.lifted) ents.push({ y:p.pose === 'sit' || p.pose === 'slide' || p.pose === 'sleep' ? p.fy + .5 : (p.fy || p.y), draw:() => drawLucia(p, s) });
+  if (s.street){
+    for (const n of peds) ents.push({ y:n.y, draw:() => drawNeighbor(n, s) });
+    for (const c of cars) ents.push({ y:c.y, draw:() => drawCar(c) });
+  }
+  ents.sort((a, b) => a.y - b.y).forEach(e => e.draw());
+  drawDragged();
+  for (const f of flights){
+    const k = ease(Math.min(1, f.t)), x = lerp(f.x0, f.x1, k), y = lerp(f.y0, f.y1, k) - Math.sin(k*Math.PI)*40;
+    const [w, h] = propSize(f.id, room, lerp(p.y, f.fy, k)), imf = IMG['p:' + f.id];
+    if (imf) ctx.drawImage(imf, x - w/2, y - h, w, h);
+  }
+  for (const c of (CONT[room] || [])){
+    const n = Object.values(WORLD.props).filter(o => o.room === room && o.cont === c.id).length;
+    if (n){ circ(ctx, c.x + c.r*.6, c.y - c.r*.6, 15, '#ff8a3d'); ctx.fillStyle = '#fff'; ctx.font = '800 16px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n, c.x + c.r*.6, c.y - c.r*.6 + 1); }
+  }
+  if (tapRing && T - tapRing.t < .5){
+    const k = (T - tapRing.t)/.5, r = s.H(tapRing.y)*.12;
+    ctx.strokeStyle = `rgba(255,255,255,${1 - k})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(tapRing.x, tapRing.y, r + k*r, (r + k*r)*.35, 0, 0, 7); ctx.stroke();
+  }
+  if (night > 0) drawNight(room);
+  if (s.street) for (const n of peds) if (n.bubble) bubble(n.x, n.y - s.H(n.y)*1.12, n.bubble.text);
+  if (p.bubble){
+    const H = s.H(p.fy || p.y);
+    const by = p.pose === 'swing' ? 380 : p.pose === 'sit' || p.pose === 'slide' ? p.seatY - H*.82 : p.y - H - 30;
+    const bx = p.pose === 'swing' ? SWING.px : p.x;
+    bubble(bx, by, p.bubble.text);
+  }
+  for (const q of parts) if (q.w){ ctx.globalAlpha = clamp(1 - q.t/q.life, 0, 1); star(ctx, q.x, q.y, q.r*1.6, q.r*.7, 4, q.col); ctx.globalAlpha = 1; }
+}
+function drawGuides(room){
+  const pulse = .55 + .35*Math.sin(T*5);
+  ctx.save(); ctx.setLineDash([10, 8]); ctx.lineWidth = 4; ctx.strokeStyle = `rgba(255,255,255,${pulse})`;
+  ctx.fillStyle = `rgba(255,210,63,${pulse*.25})`;
+  for (const sf of (SURF[room] || [])){
+    if (sf.y0 != null){ rr(ctx, sf.x0, sf.y0 - 6, sf.x1 - sf.x0, sf.y1 - sf.y0 + 12, 14); ctx.fill(); ctx.stroke(); }
+    else { rr(ctx, sf.x0, sf.y - 9, sf.x1 - sf.x0, 14, 7); ctx.fill(); ctx.stroke(); }
+  }
+  for (const c of (CONT[room] || [])){ ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill(); ctx.stroke(); }
+  ctx.restore();
+}
+function drawNight(room){
+  ctx.save();
+  if (room === 'habitacion'){
+    ctx.globalAlpha = night;
+    ctx.fillStyle = vgrad(ctx, 170, 390, '#1d2457', '#3a3f86');
+    ctx.fillRect(712, 176, 120, 206); ctx.fillRect(860, 176, 134, 206);
+    circ(ctx, 935, 222, 20, '#fff4c2'); circ(ctx, 946, 214, 18, '#262b68');
+    for (let i = 0; i < 12; i++){ const sx = 718 + (i*67) % 270; if (sx > 828 && sx < 864) continue; star(ctx, sx, 186 + (i*41) % 180, 3, 1.2, 4, '#fff'); }
+    ctx.globalAlpha = 1;
+  }
+  ctx.globalCompositeOperation = 'multiply';
+  const v = Math.round(255 - night*150), b = Math.round(255 - night*70);
+  ctx.fillStyle = `rgb(${v},${Math.round(v*1.02)},${b})`; ctx.fillRect(0, 0, 1672, 941);
+  ctx.restore();
+  const p = me();
+  if (p.pose === 'sleep' && night > .5){
+    for (let i = 0; i < 3; i++){
+      const k = ((T*.6 + i/3) % 1);
+      ctx.globalAlpha = (1 - k) * night; ctx.fillStyle = '#fff'; ctx.font = `800 ${18 + k*16}px "Baloo 2", sans-serif`; ctx.textAlign = 'center';
+      ctx.fillText('Z', 230 + k*60 + i*6, 430 - k*90); ctx.globalAlpha = 1;
+    }
+  }
+}
+
+/* ---------- Dibujo de Lucía ---------- */
+function drawSit(im, x, seatY, H){
+  im = spr('frente') || im;
+  if (!im) return;
+  const W = H*im.width/im.height, hip = .72, knee = .86, sq = .25;
+  const topH = H*hip, midH = H*(knee - hip)*sq, botH = H*(1 - knee);
+  const top = seatY - topH - midH*.5;
+  ctx.drawImage(im, 0, im.height*knee, im.width, im.height*(1 - knee), x - W/2, top + topH + midH - 1, W, botH + 1);
+  ctx.drawImage(im, 0, im.height*hip, im.width, im.height*(knee - hip), x - W/2, top + topH - 1, W, midH + 2);
+  drawAccBack('frente', x - W/2, top, W, H);
+  ctx.drawImage(im, 0, 0, im.width, im.height*hip + 1, x - W/2, top, W, topH + 1);
+  drawAcc('frente', x - W/2, top, W, H);
+}
+function drawLucia(p, s){
+  if (p.pose === 'sit' || p.pose === 'slide'){
+    const H = s.H(p.fy);
+    ell(ctx, p.x, p.pose === 'sit' ? p.fy - 4 : p.seatY + 6, H*.18, H*.035, 0, 'rgba(60,30,20,.18)');
+    drawSit(IMG.frente, p.x, p.seatY, H);
+    return;
+  }
+  if (p.pose === 'sleep'){
+    const im = spr('frente'); if (!im) return;
+    const H = s.H(690) * .95, W = H*im.width/im.height, hx = 205, hy = 482;
+    ctx.save(); ctx.translate(hx, hy); ctx.rotate(-Math.PI/2); ctx.drawImage(im, -W/2, 0, W, H); ctx.restore();
+    const bx0 = hx + H*.3, bx1 = hx + H + 16, by0 = hy - W*.38, by1 = hy + W*.47;
+    ctx.fillStyle = vgrad(ctx, by0, by1, '#f9bccb', '#e8879f');
+    ctx.beginPath(); ctx.moveTo(bx0, by0 + 12); ctx.quadraticCurveTo(lerp(bx0, bx1, .55), by0 - 16, bx1, by0 + 18);
+    ctx.quadraticCurveTo(bx1 + 10, lerp(by0, by1, .6), bx1 + 2, by1); ctx.lineTo(bx0 - 4, by1); ctx.closePath(); ctx.fill();
+    const dots = ['#ffe27a','#9fd6ff','#fff'];
+    for (let i = 0; i < 9; i++) circ(ctx, lerp(bx0 + 30, bx1 - 14, (i % 3)/2 + (Math.floor(i/3) % 2)*.12), lerp(by0 + 22, by1 - 14, Math.floor(i/3)/2), 7, dots[i % 3]);
+    ctx.fillStyle = '#ffd6e0'; rr(ctx, bx0 - 8, by0 + 8, 20, by1 - by0 - 8, 10); ctx.fill();
+    ctx.strokeStyle = '#e8879f'; ctx.lineWidth = 3;
+    for (let x = bx0 + 6; x < bx1; x += 12){ ctx.beginPath(); ctx.moveTo(x, by1); ctx.lineTo(x - 2, by1 + 14); ctx.stroke(); }
+    return;
+  }
+  const im = spr(p.dir); if (!im) return;
+  const H = s.H(p.fy || p.y), w = H * im.width / im.height;
+  const bob = p.moving ? -Math.abs(Math.sin(p.walk)) * H * .035 : 0;
+  const tilt = p.moving ? Math.sin(p.walk) * .035 : 0;
+  const cr = p.crouch ? clamp((T - p.crouch)/.35, 0, 1) : 1;
+  const squat = cr < 1 ? 1 - Math.sin(cr*Math.PI)*.1 : 1;
+  const breathe = p.moving ? 1 : 1 + Math.sin(T*2.4) * .008;
+  const kick = p.kick ? clamp((T - p.kick)/.3, 0, 1) : 1;
+  const lean = kick < 1 ? Math.sin(kick*Math.PI) * (p.dir === 'izquierda' ? -.12 : .12) : 0;
+  const carry = p.carry && IMG['p:' + p.carry];
+  const drawCarry = () => {
+    const [cw, chh] = propSize(p.carry, p.scene, p.y);
+    const k = Math.min(1, (H*.5) / Math.max(cw, chh));
+    const dw = cw*k, dh = chh*k;
+    const off = p.dir === 'izquierda' ? -.2*H : p.dir === 'derecha' ? .2*H : 0;
+    ctx.drawImage(IMG['p:' + p.carry], p.x + off - dw/2, p.y - H*.3 - dh + bob, dw, dh);
+  };
+  ctx.save(); ctx.translate(p.x, p.y);
+  ell(ctx, 0, 0, w*.42, H*.045, 0, 'rgba(60,30,20,.25)');
+  ctx.restore();
+  if (carry && p.dir === 'espalda') drawCarry();
+  ctx.save(); ctx.translate(p.x, p.y);
+  ctx.translate(0, bob); ctx.rotate(tilt + lean); ctx.scale(1, breathe*squat);
+  drawAccBack(p.dir, -w/2, -H, w, H);
+  ctx.drawImage(im, -w/2, -H, w, H);
+  drawAcc(p.dir, -w/2, -H, w, H);
+  ctx.restore();
+  if (carry && p.dir !== 'espalda') drawCarry();
+}
+
+/* ---------- Dibujo general ---------- */
+function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x+r, y); c.arcTo(x+w, y, x+w, y+h, r); c.arcTo(x+w, y+h, x, y+h, r); c.arcTo(x, y+h, x, y, r); c.arcTo(x, y, x+w, y, r); c.closePath(); }
+function circ(c, x, y, r, f){ c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fillStyle = f; c.fill(); }
+function ell(c, x, y, rx, ry, rot, f){ c.beginPath(); c.ellipse(x, y, Math.max(.1, rx), Math.max(.1, ry), rot, 0, Math.PI*2); c.fillStyle = f; c.fill(); }
+function ball3(c, x, y, r, base, hi){ const g = c.createRadialGradient(x - r*.35, y - r*.4, r*.08, x, y, r); g.addColorStop(0, hi); g.addColorStop(1, base); circ(c, x, y, r, g); }
+function vgrad(c, y0, y1, a, b){ const g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+function star(c, x, y, r1, r2, n, f){ c.beginPath(); for (let i = 0; i < n*2; i++){ const r = i % 2 ? r2 : r1, a = -Math.PI/2 + i*Math.PI/n; c.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r); } c.closePath(); c.fillStyle = f; c.fill(); }
+function sunGlow(c, x, y, r, col){ const g = c.createRadialGradient(x, y, 2, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(x-r, y-r, r*2, r*2); }
+function cloudShape(c, x, y, s){ [[0,0,22],[24,-12,28],[54,0,22],[27,8,24]].forEach(([dx,dy,r]) => circ(c, x+dx*s, y+dy*s, r*s, '#fff')); }
+function drawRoad(s){
+  ctx.fillStyle = vgrad(ctx, 790, s.h, '#86707a', '#5e4f5c'); ctx.fillRect(0, 790, s.w, s.h - 790);
+  ctx.fillStyle = 'rgba(255,240,220,.75)'; for (let x = 0; x < s.w; x += 120) ctx.fillRect(x, 851, 64, 5);
+}
+function drawNeighbor(n, s){ const H = s.H(n.y) * .95; drawChar(ctx, { look:{ char:n.char }, facing:n.dir, moving:true, walk:n.walk, x:n.x }, n.x, n.y, H / 122); }
+function drawCar(c){
+  const L = c.kind === 'van' ? 250 : 215, Hh = c.kind === 'van' ? 92 : 70;
+  ctx.save(); ctx.translate(c.x, c.y); ctx.scale(c.dir, 1);
+  ell(ctx, 0, 2, L*.52, 10, 0, 'rgba(30,20,30,.3)');
+  ctx.fillStyle = vgrad(ctx, -Hh, 0, shade(c.col, 18), shade(c.col, -22));
+  if (c.kind === 'van'){ rr(ctx, -L/2, -Hh, L, Hh - 10, 18); ctx.fill(); }
+  else { rr(ctx, -L/2, -Hh*.6, L, Hh*.6 - 8, 16); ctx.fill(); ctx.beginPath(); ctx.moveTo(-L*.3, -Hh*.58); ctx.quadraticCurveTo(-L*.22, -Hh, -L*.02, -Hh); ctx.lineTo(L*.18, -Hh); ctx.quadraticCurveTo(L*.3, -Hh, L*.36, -Hh*.58); ctx.fill(); }
+  ctx.fillStyle = 'rgba(200,232,255,.92)';
+  if (c.kind === 'van'){ rr(ctx, L*.18, -Hh + 12, L*.26, Hh*.36, 8); ctx.fill(); rr(ctx, -L*.4, -Hh + 12, L*.5, Hh*.36, 8); ctx.fill(); }
+  else { rr(ctx, -L*.2, -Hh*.92, L*.18, Hh*.3, 6); ctx.fill(); rr(ctx, L*.02, -Hh*.92, L*.25, Hh*.3, 6); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; rr(ctx, -L/2 + 10, -Hh*.55, L - 20, 5, 3); ctx.fill();
+  circ(ctx, L/2 - 8, -Hh*.32, 6, '#fff6b0'); circ(ctx, -L/2 + 7, -Hh*.32, 5, '#ff6f6f');
+  [-L*.3, L*.3].forEach(wx => { circ(ctx, wx, -6, 17, '#2b2140'); circ(ctx, wx, -6, 8, '#c9c3d8'); });
+  ctx.restore();
+}
+function shade(hex, amt){ const n = parseInt(hex.slice(1), 16), f = v => clamp(v + amt, 0, 255); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
+function namePill(x, y, text, bg, fg){
+  ctx.font = '800 15px Nunito, sans-serif'; const w = ctx.measureText(text).width + 18;
+  ctx.fillStyle = bg; rr(ctx, x - w/2, y - 11, w, 22, 11); ctx.fill();
+  ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y + 1);
+}
+function bubble(x, y, text){
+  ctx.font = '800 19px Nunito, sans-serif'; const w = ctx.measureText(text).width + 28;
+  ctx.fillStyle = '#fff'; rr(ctx, x - w/2, y - 20, w, 38, 19); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - 8, y + 16); ctx.lineTo(x + 2, y + 30); ctx.lineTo(x + 8, y + 16); ctx.fill();
+  ctx.fillStyle = '#2b2140'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y);
+}
+function drawExitTag(h){
+  const door = h.kind === 'door', sw = SCENES[me().scene].w;
+  const x = door ? h.x : (h.side === 'l' ? 95 : h.x - 40), y = door ? h.y - h.r - 18 + Math.sin(T*3 + h.x)*5 : h.y - 150;
+  ctx.font = '800 18px "Baloo 2", sans-serif';
+  const label = door ? h.label : (h.side === 'l' ? '‹ ' + h.label : h.label + ' ›');
+  const w = ctx.measureText(label).width + 30;
+  const bx = clamp(door ? x - w/2 : (h.side === 'l' ? x - 40 : x - w + 40), 12, sw - w - 12);
+  ctx.globalAlpha = .94; ctx.fillStyle = '#fffaf2'; rr(ctx, bx, y - 17, w, 34, 17); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#ffd23f'; rr(ctx, bx + 4, y - 13, 8, 26, 4); ctx.fill();
+  ctx.fillStyle = '#2b2140'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, bx + w/2 + 4, y + 1);
+  if (!door){
+    const k = (Math.sin(T*4) + 1)/2, ax = h.side === 'l' ? 40 - k*10 : h.x + 20 + k*10;
+    ctx.fillStyle = `rgba(255,210,63,${.55 + k*.4})`; ctx.beginPath();
+    if (h.side === 'l'){ ctx.moveTo(ax, h.y - 40); ctx.lineTo(ax + 26, h.y - 60); ctx.lineTo(ax + 26, h.y - 20); }
+    else { ctx.moveTo(ax, h.y - 40); ctx.lineTo(ax - 26, h.y - 60); ctx.lineTo(ax - 26, h.y - 20); }
+    ctx.fill();
+  }
+}
+function drawSparkle(h){
+  let x = h.x, y = h.y, r = h.r || 60;
+  if (h.hit){ x = (h.hit[0] + h.hit[2])/2; y = (h.hit[1] + h.hit[3])/2; r = Math.min(h.hit[2] - h.hit[0], h.hit[3] - h.hit[1])/2; }
+  if (h.act === 'ball'){ x = ball.x; y = ball.y - ballR()*2; r = ballR(); }
+  if (x == null) return;
+  const ph = (T*.8 + x*.013) % 3; if (ph > .9) return;
+  const k = Math.sin(ph/.9*Math.PI);
+  ctx.save(); ctx.translate(x + r*.35, y - r*.35); ctx.rotate(T); ctx.globalAlpha = k;
+  sunGlow(ctx, 0, 0, 22, 'rgba(255,240,180,.9)');
+  ctx.fillStyle = '#fff'; ctx.beginPath();
+  for (let i = 0; i < 4; i++){ ctx.rotate(Math.PI/2); ctx.moveTo(0, 0); ctx.lineTo(3, -3); ctx.lineTo(0, -13); ctx.lineTo(-3, -3); }
+  ctx.fill(); ctx.restore();
+}
+function renderFx(dt){
+  fctx.setTransform(1,0,0,1,0,0); fctx.clearRect(0, 0, fxc.width, fxc.height);
+  fctx.setTransform(dpr,0,0,dpr,0,0);
+  for (let i = parts.length - 1; i >= 0; i--){
+    const q = parts[i]; q.t += dt; q.x += q.vx*dt; q.y += q.vy*dt; q.vy += (q.w ? 260 : 30)*dt;
+    if (q.t > q.life){ parts.splice(i, 1); continue; }
+    if (!q.w){ fctx.save(); fctx.translate(q.x, q.y); fctx.rotate(q.rot + q.t*4); fctx.fillStyle = q.col; fctx.fillRect(-q.r, -q.r*.5, q.r*2, q.r); fctx.restore(); }
+  }
+}
+
+/* --- Vecinos (dibujados con código mientras llegan sus hojas de personaje) --- */
+const CHARS = { lala:{ size:.9 }, juan:{ size:1 }, bubu:{ size:1.04 } };
+const SKIN = '#f3c49a', SKIN_HI = '#ffe2c6';
+function drawChar(c, q, x, y, s){
+  const id = q.look.char, ch = CHARS[id], f = q.facing || 1;
+  const sw = q.moving ? Math.sin(q.walk) : 0, bob = q.moving ? Math.abs(Math.sin(q.walk)) * -3 : 0;
+  c.save(); c.translate(x, y); c.scale(s*ch.size, s*ch.size);
+  ell(c, 0, 0, id === 'bubu' ? 28 : 24, 7, 0, 'rgba(40,20,60,.22)');
+  c.translate(0, bob);
+  if (id === 'juan'){ c.fillStyle = vgrad(c, -66, -24, '#6fcf6b', '#3f9e45'); rr(c, -25, -66, 50, 42, 12); c.fill(); }
+  if (id === 'bubu'){ c.fillStyle = vgrad(c, -64, -4, '#4fbf6a', '#2f8f48'); c.beginPath(); c.moveTo(-20, -64); c.lineTo(20, -64); c.quadraticCurveTo(34, -30, 32, -6); c.lineTo(-32, -6); c.quadraticCurveTo(-34, -30, -20, -64); c.fill(); }
+  const legs = { lala:'#ffd84d', juan:'#4a6fb5', bubu:'#a8703f' }[id], shoes = { lala:'#ff8fb8', juan:'#e8553d', bubu:'#e3b07a' }[id];
+  if (id === 'bubu'){ ball3(c, -10 + sw*3, -14, 13, '#a8703f', '#c99260'); ball3(c, 10 - sw*3, -14, 13, '#a8703f', '#c99260'); ell(c, -10 + sw*3, -4, 10, 6, 0, shoes); ell(c, 10 - sw*3, -4, 10, 6, 0, shoes); }
+  else { c.fillStyle = legs; rr(c, -12, -30 - Math.max(0, sw)*3, 10, 30, 5); c.fill(); rr(c, 2, -30 - Math.max(0, -sw)*3, 10, 30, 5); c.fill(); ell(c, -7 + sw*3, -2, 9, 5.5, 0, shoes); ell(c, 7 - sw*3, -2, 9, 5.5, 0, shoes); }
+  const sleeve = { lala:'#ffd84d', juan:'#ff8a3d', bubu:'#a8703f' }[id], hand = id === 'bubu' ? '#c99260' : SKIN;
+  [[-1, .25 + sw*.45], [1, -.25 - sw*.45]].forEach(([side, rot]) => { c.save(); c.translate(side*(id === 'bubu' ? 21 : 17), -56); c.rotate(rot); c.fillStyle = sleeve; rr(c, -5.5, 0, 11, 22, 5.5); c.fill(); circ(c, 0, 24, 6, hand); c.restore(); });
+  if (id === 'lala'){ c.fillStyle = vgrad(c, -64, -26, '#ffe36e', '#ffcf2e'); rr(c, -18, -64, 36, 40, 13); c.fill(); [['#ff8fb8',-9,-52],['#6c8cff',7,-56],['#3fa45b',-3,-40],['#ff8a3d',10,-36]].forEach(([col, dx, dy]) => circ(c, dx, dy, 3, col)); }
+  else if (id === 'juan'){ c.fillStyle = vgrad(c, -64, -26, '#ffa25e', '#f47b2a'); rr(c, -18, -64, 36, 40, 13); c.fill(); c.strokeStyle = '#2f8a3a'; c.lineWidth = 4; c.beginPath(); c.moveTo(-12, -63); c.lineTo(-13, -30); c.moveTo(12, -63); c.lineTo(13, -30); c.stroke(); }
+  else { ball3(c, 0, -46, 25, '#a8703f', '#c99260'); ell(c, 0, -40, 15, 16, 0, '#e3b07a'); star(c, 0, -46, 11, 5, 5, '#ffd23f'); ell(c, 0, -68, 22, 6, 0, '#3fa45b'); }
+  if (id === 'bubu'){
+    ball3(c, -23, -114, 12, '#a8703f', '#c99260'); ball3(c, 23, -114, 12, '#a8703f', '#c99260');
+    ball3(c, 0, -90, 30, '#a8703f', '#c99260'); ell(c, f*2, -78, 14, 10, 0, '#e8c08f'); ell(c, f*2, -84, 5.5, 4, 0, '#3b2416');
+    circ(c, -10 + f*3, -95, 4.5, '#2b2140'); circ(c, 10 + f*3, -95, 4.5, '#2b2140');
+  } else {
+    if (id === 'lala'){ ball3(c, -31, -84, 12, '#7a4a26', '#a8703f'); ball3(c, 31, -84, 12, '#7a4a26', '#a8703f'); }
+    ball3(c, 0, -88, 27, SKIN, SKIN_HI);
+    const hair = id === 'lala' ? '#7a4a26' : '#8a5a32';
+    c.fillStyle = hair; c.beginPath(); c.arc(0, -90, 28.5, Math.PI, Math.PI*2); c.closePath(); c.fill();
+    if (id === 'juan') [[-22,-104,-.9],[-10,-114,-.4],[4,-117,.1],[17,-110,.6],[25,-98,1.1]].forEach(([px, py, a]) => { c.save(); c.translate(px, py); c.rotate(a); c.beginPath(); c.moveTo(-7, 6); c.lineTo(0, -10); c.lineTo(7, 6); c.fill(); c.restore(); });
+    ell(c, -10 + f*2, -98, 16, 9, -.35, hair); ell(c, 11 + f*2, -99, 14, 8, .4, hair);
+    const ex = f*3;
+    ell(c, -9 + ex, -84, 5.5, 6.5, 0, '#fff'); ell(c, 9 + ex, -84, 5.5, 6.5, 0, '#fff');
+    circ(c, -9 + ex*1.3, -83, 4, '#4a2a18'); circ(c, 9 + ex*1.3, -83, 4, '#4a2a18');
+    circ(c, -16 + ex, -76, 4.5, 'rgba(255,120,130,.4)'); circ(c, 16 + ex, -76, 4.5, 'rgba(255,120,130,.4)');
+    c.fillStyle = '#c4515f'; c.beginPath(); c.arc(ex, -78, 5.5, .1*Math.PI, .9*Math.PI); c.fill();
+  }
+  c.restore();
+}
+
+/* ---------- Tablero de tiza ---------- */
+const BW = 393, BH = 687;
+const board = $('board'), bctx = board.getContext('2d');
+const ink = document.createElement('canvas'); ink.width = BW; ink.height = BH;
+const ictx = ink.getContext('2d');
+const CHALK = ['#ffffff','#ffe27a','#ff9ec0','#9fd6ff','#a8e69a','#ffb36b'];
+let chalk = CHALK[0], drawing = null;
+board.width = BW; board.height = BH;
+function openBoard(){
+  ictx.clearRect(0, 0, BW, BH);
+  if (WORLD.ink){ const im = new Image(); im.onload = () => { ictx.drawImage(im, 0, 0); paintBoard(); }; im.src = WORLD.ink; }
+  $('chalks').innerHTML = '';
+  CHALK.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chalk' + (c === chalk ? ' sel' : ''); b.style.background = c; b.setAttribute('aria-label', 'Tiza'); b.onclick = () => { chalk = c; $('chalks').querySelectorAll('.chalk').forEach(x => x.classList.toggle('sel', x === b)); }; $('chalks').appendChild(b); });
+  paintBoard(); $('draw').hidden = false;
+}
+function paintBoard(){
+  bctx.setTransform(1,0,0,1,0,0); bctx.clearRect(0, 0, BW, BH);
+  const m = quadTransform(BOARDQ, BW, BH), det = m[0]*m[3] - m[1]*m[2];
+  const inv = [m[3]/det, -m[1]/det, -m[2]/det, m[0]/det, (m[2]*m[5] - m[3]*m[4])/det, (m[1]*m[4] - m[0]*m[5])/det];
+  bctx.setTransform(...inv); if (IMG.juegos) bctx.drawImage(IMG.juegos, 0, 0);
+  bctx.setTransform(1,0,0,1,0,0); bctx.drawImage(ink, 0, 0);
+}
+function boardPt(e){ const r = board.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * BW, (e.clientY - r.top) / r.height * BH]; }
+board.addEventListener('pointerdown', e => { board.setPointerCapture?.(e.pointerId); drawing = boardPt(e); stroke(drawing, drawing); });
+board.addEventListener('pointermove', e => { if (!drawing) return; const p = boardPt(e); stroke(drawing, p); drawing = p; });
+const endDraw = () => { drawing = null; };
+board.addEventListener('pointerup', endDraw); board.addEventListener('pointercancel', endDraw);
+function stroke(a, b){
+  ictx.lineCap = 'round'; ictx.lineJoin = 'round'; ictx.strokeStyle = chalk; ictx.lineWidth = 9; ictx.globalAlpha = .88;
+  ictx.beginPath(); ictx.moveTo(a[0], a[1]); ictx.lineTo(b[0] + .01, b[1]); ictx.stroke();
+  ictx.globalAlpha = .35; ictx.lineWidth = 14; ictx.beginPath(); ictx.moveTo(a[0], a[1]); ictx.lineTo(b[0] + .01, b[1]); ictx.stroke();
+  ictx.globalAlpha = 1; paintBoard();
+}
+$('dClear').onclick = () => { ictx.clearRect(0, 0, BW, BH); ictx.fillStyle = '#3d5845'; ictx.fillRect(0, 0, BW, BH); paintBoard(); };
+$('dDone').onclick = () => { $('draw').hidden = true; dispatch({ type:'ink', data:ink.toDataURL('image/png') }); bubbleOn(me(), '¡Mira mi dibujo!'); setFlag('drew'); };
+
+/* ---------- Arranque ---------- */
+if (location.hash === '#debug') window.__g = { me, world:() => WORLD, go:goScene, cam, ball, swing, s2w:(x,y) => world2scr(x,y) };
+resize();
+requestAnimationFrame(frame);
+loadAll().then(() => {
+  $('loading').hidden = true; $('bPlay').hidden = false;
+  const saved = load();
+  if (saved && saved.w){
+    const w = saved.w, fresh = freshWorld();
+    for (const id in fresh.props) if (w.props && w.props[id]){ const o = { ...w.props[id] }; delete o.held; fresh.props[id] = o; }
+    fresh.chairs = w.chairs || fresh.chairs; fresh.lamps = w.lamps || {}; fresh.tv = !!w.tv; fresh.ink = w.ink || null;
+    fresh.towers = w.towers || []; fresh.done = w.done || {}; fresh.flags = w.flags || {}; fresh.found = w.found || {};
+    fresh.unlocked = [...new Set([...DEFAULT_UNLOCK, ...(w.unlocked || [])])]; fresh.look = { ...fresh.look, ...(w.look || {}) };
+    if (w.ball){ ball.x = w.ball.x; ball.y = w.ball.y; }
+    if (saved.p && saved.p.carry && fresh.props[saved.p.carry]){ const o = fresh.props[saved.p.carry]; o.room = saved.p.scene; o.surf = 'piso'; o.cont = null; o.x = saved.p.x; o.y = saved.p.y; o.fy = saved.p.y; }
+    WORLD = fresh;
+    for (let i = 0; i < 2; i++) chairAnim[i] = WORLD.chairs[i];
+  }
+  updateBadges();
+});
+})();
+</script>
+</body>
+</html>
